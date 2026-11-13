@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Bridge Remote</string>
+    <string name="title_approvals">Approvals</string>
+    <string name="title_apps">Active Apps</string>
+    <string name="title_controls">Controls</string>
+    <string name="title_settings">Settings</string>
+</resources>
+

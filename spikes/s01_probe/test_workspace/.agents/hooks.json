@@ -1,0 +1,18 @@
+{
+  "remote-bridge-probe": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\hp\\Downloads\\REMOSTE\\spikes\\s01_probe\\probe_hook.js\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+

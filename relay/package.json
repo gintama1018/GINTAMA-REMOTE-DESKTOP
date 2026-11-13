@@ -1,0 +1,13 @@
+{
+  "name": "bridge-relay",
+  "version": "1.0.0",
+  "description": "Cloud Relay Server for Bridge",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
+

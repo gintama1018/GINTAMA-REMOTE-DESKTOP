@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_approvals"
+        android:icon="@android:drawable/ic_dialog_info"
+        android:title="Approvals" />
+    <item
+        android:id="@+id/nav_apps"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Apps" />
+    <item
+        android:id="@+id/nav_controls"
+        android:icon="@android:drawable/ic_lock_lock"
+        android:title="Controls" />
+    <item
+        android:id="@+id/nav_settings"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Settings" />
+</menu>
+

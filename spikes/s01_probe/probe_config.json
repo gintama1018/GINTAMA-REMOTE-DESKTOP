@@ -1,0 +1,5 @@
+{
+  "decision": "auto_approve",
+  "reason": "Spike S-01/S-02: Approved after 5s remote phone roundtrip",
+  "delay_ms": 5000
+}

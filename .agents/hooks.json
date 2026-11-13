@@ -1,0 +1,18 @@
+{
+  "bridge-remote-companion": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\hp\\Downloads\\REMOSTE\\desktop\\hook.js\"",
+            "timeout": 130
+          }
+        ]
+      }
+    ]
+  }
+}
+
