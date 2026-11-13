@@ -340,6 +340,28 @@ async function handleIncomingEnvelope(envelope) {
   }
 }
 
-// Start Agent
+// ==========================================
+// 4. Render Free Tier Keep-Alive Heartbeat
+// ==========================================
+// Prevents Render from sleeping after 15m of inactivity by pinging /healthz every 10m
+function startKeepAlivePing() {
+  if (!CONFIG.relayUrl.includes('.onrender.com')) return;
+  const https = require('https');
+  const healthUrl = CONFIG.relayUrl
+    .replace('wss://', 'https://')
+    .replace('ws://', 'http://')
+    .replace(/\/v1\/connect.*$/, '/healthz');
+
+  console.log(`[Agent] 💓 Render keep-alive enabled (prevents 15m idle sleep)`);
+
+  setInterval(() => {
+    https.get(healthUrl, (res) => {
+      res.resume();
+    }).on('error', () => {});
+  }, 10 * 60 * 1000); // 10 minutes
+}
+
+// Start Agent & Keep-Alive
 connectToRelay();
+startKeepAlivePing();
 
