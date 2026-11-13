@@ -33,7 +33,7 @@ setTimeout(() => {
 
   console.log('\n========================================================');
   console.log('  🟢 BRIDGE IS ACTIVE & RUNNING!                         ');
-  console.log('  - Local IPC: 127.0.0.1:49152 (For Antigravity)         ');
+  console.log('  - Local IPC: 127.0.0.1:48484 (For Antigravity)         ');
   console.log(`  - Relay URL: ${relayUrl}                              `);
   console.log('                                                        ');
   console.log('  Open Bridge Remote on your Android phone.             ');

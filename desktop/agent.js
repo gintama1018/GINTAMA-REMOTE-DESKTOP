@@ -53,7 +53,7 @@ const CONFIG = {
   deviceId: process.env.BRIDGE_DEVICE_ID || fileConfig.deviceId || 'dev_laptop_01',
   peerPhoneId: process.env.BRIDGE_PHONE_ID || fileConfig.peerPhoneId || 'dev_phone_01',
   relayUrl: normalizeRelayUrl(process.env.BRIDGE_RELAY_URL || fileConfig.relayUrl || 'ws://127.0.0.1:8765/v1/connect'),
-  localIpcPort: 49152,
+  localIpcPort: 48484,
   approvalTimeoutMs: 120000 // 2 minutes
 };
 

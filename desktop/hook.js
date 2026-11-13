@@ -28,7 +28,7 @@ function main() {
   // Send to Desktop Agent local IPC
   const req = http.request({
     hostname: '127.0.0.1',
-    port: 49152,
+    port: 48484,
     path: '/hook',
     method: 'POST',
     headers: {
