@@ -331,6 +331,8 @@ async function handleIncomingEnvelope(envelope) {
         result = await systemController.getSystemStats();
       } else if (action === 'screenshot') {
         result = await systemController.takeScreenshot();
+      } else if (action === 'unlock') {
+        result = await systemController.unlockWorkstation(args.pin);
       }
     } catch (err) {
       result = { ok: false, error: err.message || String(err) };

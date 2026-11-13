@@ -225,6 +225,32 @@ function setVolume(percent) {
   });
 }
 
+// 11. Unlock Workstation / Wake & Type PIN
+function unlockWorkstation(pin) {
+  return new Promise((resolve, reject) => {
+    wakeDisplay(); // Wake display
+    const cleanPin = (pin || '').replace(/"/g, '`"');
+    const psScript = `
+      Add-Type -AssemblyName System.Windows.Forms;
+      [System.Windows.Forms.SendKeys]::SendWait("{ESC}");
+      Start-Sleep -Milliseconds 300;
+      [System.Windows.Forms.SendKeys]::SendWait(" ");
+      Start-Sleep -Milliseconds 300;
+      if ("${cleanPin}") {
+        [System.Windows.Forms.SendKeys]::SendWait("${cleanPin}");
+        Start-Sleep -Milliseconds 200;
+        [System.Windows.Forms.SendKeys]::SendWait("{ENTER}");
+      }
+    `;
+    exec(`powershell -NoProfile -Command "${psScript.replace(/\r?\n/g, ' ')}"`, (error) => {
+      if (error) {
+        return reject({ ok: false, error: error.message });
+      }
+      resolve({ ok: true, message: 'Workstation unlock sequence dispatched' });
+    });
+  });
+}
+
 module.exports = {
   lockScreen,
   listRunningApps,
@@ -235,7 +261,8 @@ module.exports = {
   wakeDisplay,
   toggleMute,
   adjustVolume,
-  setVolume
+  setVolume,
+  unlockWorkstation
 };
 
 // Self-test when run directly

@@ -314,5 +314,13 @@ public class BridgeClient {
             requestAction("set_volume", args);
         } catch (Exception ignored) {}
     }
+
+    public void unlockLaptop(String pin) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("pin", pin != null ? pin : "");
+            requestAction("unlock", args);
+        } catch (Exception ignored) {}
+    }
 }
 

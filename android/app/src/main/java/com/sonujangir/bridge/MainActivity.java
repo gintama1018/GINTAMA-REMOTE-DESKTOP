@@ -17,10 +17,13 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
 public class MainActivity extends AppCompatActivity implements BridgeClient.BridgeEventListener {
 
@@ -189,6 +192,44 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         }
     }
 
+    private void showBiometricPrompt(String pin) {
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(MainActivity.this, executor,
+                new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationError(int errorCode, CharSequence errString) {
+                        super.onAuthenticationError(errorCode, errString);
+                        Toast.makeText(MainActivity.this, "Biometric: " + errString, Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                        super.onAuthenticationSucceeded(result);
+                        Toast.makeText(MainActivity.this, "Biometric Verified! Unlocking PC...", Toast.LENGTH_SHORT).show();
+                        if (bridgeClient != null) {
+                            bridgeClient.unlockLaptop(pin);
+                        }
+                        if (webView != null) {
+                            webView.evaluateJavascript("if(window.onUnlockSuccess) window.onUnlockSuccess();", null);
+                        }
+                    }
+
+                    @Override
+                    public void onAuthenticationFailed() {
+                        super.onAuthenticationFailed();
+                        Toast.makeText(MainActivity.this, "Fingerprint not recognized", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Workstation")
+                .setSubtitle("Confirm your fingerprint to unlock laptop")
+                .setNegativeButtonText("Cancel")
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+
     // ==========================================
     // JavaScript Interface (Exposed to Web UI)
     // ==========================================
@@ -326,6 +367,37 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                     }
                 }
             } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void unlockWithBiometrics(String pin) {
+            runOnUiThread(() -> {
+                showBiometricPrompt(pin);
+            });
+        }
+
+        @JavascriptInterface
+        public void unlockLaptopDirect(String pin) {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.unlockLaptop(pin);
+                }
+                Toast.makeText(MainActivity.this, "Unlock signal sent to PC", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void saveSavedPin(String pin) {
+            getSharedPreferences("bridge_prefs", MODE_PRIVATE)
+                    .edit()
+                    .putString("saved_pin", pin)
+                    .apply();
+        }
+
+        @JavascriptInterface
+        public String getSavedPin() {
+            return getSharedPreferences("bridge_prefs", MODE_PRIVATE)
+                    .getString("saved_pin", "");
         }
 
         @JavascriptInterface
