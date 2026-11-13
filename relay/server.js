@@ -34,7 +34,63 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
 
-  // 1. Health check
+  // 1. Root Landing Page (HTML Status Dashboard)
+  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {
+    const connected = [];
+    devices.forEach((info, id) => {
+      if (info.ws && info.ws.readyState === WebSocket.OPEN) {
+        connected.push({ deviceId: id, role: info.role, lastSeen: info.lastSeen });
+      }
+    });
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bridge Cloud Relay</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .card { background: #1e293b; border-radius: 16px; padding: 32px; max-width: 480px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+    .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(34, 197, 94, 0.2); color: #4ade80; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 13px; margin-bottom: 20px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    h1 { margin: 0 0 8px 0; font-size: 24px; color: #fff; }
+    p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0; }
+    .info-box { background: #0f172a; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-family: monospace; font-size: 13px; color: #38bdf8; word-break: break-all; }
+    .label { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; }
+    .device-list { margin-top: 20px; border-top: 1px solid #334155; padding-top: 16px; }
+    .device-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #33415522; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge"><div class="dot"></div> CLOUD RELAY ONLINE</div>
+    <h1>Bridge Cloud Relay</h1>
+    <p>Real-time bridge connecting Google Antigravity on your Laptop with your Mobile Device.</p>
+    
+    <div class="label">WebSocket Endpoint</div>
+    <div class="info-box">wss://${req.headers.host || 'gintama-remote-desktop.onrender.com'}/v1/connect</div>
+
+    <div class="label">Relay Health</div>
+    <div class="info-box">HTTP 200 OK &bull; Uptime: ${Math.round(process.uptime())}s</div>
+
+    <div class="device-list">
+      <div class="label">Connected Devices (${connected.length})</div>
+      ${connected.length === 0 
+        ? '<div style="color: #64748b; font-size: 13px; margin-top: 8px;">No devices active yet. Start laptop agent or open Android app.</div>' 
+        : connected.map(d => `<div class="device-item"><span>${d.role === 'desktop' ? '💻' : '📱'} <b>${d.deviceId}</b> (${d.role})</span><span style="color: #4ade80; font-weight: bold;">ONLINE</span></div>`).join('')
+      }
+    </div>
+  </div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.writeHead(200);
+    return res.end(html);
+  }
+
+  // 2. Health check
   if (req.method === 'GET' && url.pathname === '/healthz') {
     const connected = [];
     devices.forEach((info, id) => {
