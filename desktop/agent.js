@@ -117,7 +117,7 @@ function handleHookInvocation(payload, callback) {
 
   // Auto-allow harmless internal inspection & build commands so Antigravity doesn't hang
   const cmdTrim = (command || '').trim();
-  const harmless = /^(git\s+(status|diff|log|add|commit|push)|tasklist|where\.exe|dir|Get-|Select-|Copy-Item|netstat|node\s+|echo|cd\s+android)/i;
+  const harmless = /^(git\s+(status|diff|log|add|commit|push)|tasklist|where\.exe|dir|Get-|Select-|Copy-Item|netstat|node\s+|echo|cd\s+android|\.?\\?gradlew)/i;
   if (harmless.test(cmdTrim)) {
     console.log(`[Agent] ⚡ Auto-approving internal assistant command`);
     return callback({ decision: 'allow', reason: 'Internal development command' });
