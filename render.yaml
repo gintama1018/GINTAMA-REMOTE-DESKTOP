@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: gintama-remote-desktop
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: relay
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.0.0
+

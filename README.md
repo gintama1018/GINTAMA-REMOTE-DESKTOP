@@ -341,3 +341,4 @@ The compiled binary will be placed at:
 ## 12. License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+

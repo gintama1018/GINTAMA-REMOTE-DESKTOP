@@ -10,14 +10,49 @@
 
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { WebSocket } = require('../relay/node_modules/ws');
 const systemController = require('./system_controller');
 
+// Configuration loader
+let fileConfig = {};
+try {
+  const cfgPath = path.join(__dirname, '..', 'bridge.config.json');
+  if (fs.existsSync(cfgPath)) {
+    fileConfig = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  }
+} catch (e) {}
+
+function normalizeRelayUrl(input) {
+  let url = (input || '').trim();
+  if (!url) url = 'ws://127.0.0.1:8765/v1/connect';
+
+  url = url.replace(/\/+$/, '');
+  if (url.endsWith('/v1/connect')) {
+    url = url.substring(0, url.length - '/v1/connect'.length);
+  }
+
+  if (url.startsWith('https://')) {
+    url = 'wss://' + url.substring(8);
+  } else if (url.startsWith('http://')) {
+    url = 'ws://' + url.substring(7);
+  } else if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+    if (url.includes('.onrender.com') || (!url.includes(':') && !url.includes('localhost') && !url.includes('127.0.0.1'))) {
+      url = 'wss://' + url;
+    } else {
+      url = 'ws://' + url;
+    }
+  }
+
+  return `${url}/v1/connect`;
+}
+
 // Configuration
 const CONFIG = {
-  deviceId: process.env.BRIDGE_DEVICE_ID || 'dev_laptop_01',
-  peerPhoneId: process.env.BRIDGE_PHONE_ID || 'dev_phone_01',
-  relayUrl: process.env.BRIDGE_RELAY_URL || 'ws://127.0.0.1:8765/v1/connect',
+  deviceId: process.env.BRIDGE_DEVICE_ID || fileConfig.deviceId || 'dev_laptop_01',
+  peerPhoneId: process.env.BRIDGE_PHONE_ID || fileConfig.peerPhoneId || 'dev_phone_01',
+  relayUrl: normalizeRelayUrl(process.env.BRIDGE_RELAY_URL || fileConfig.relayUrl || 'ws://127.0.0.1:8765/v1/connect'),
   localIpcPort: 49152,
   approvalTimeoutMs: 120000 // 2 minutes
 };

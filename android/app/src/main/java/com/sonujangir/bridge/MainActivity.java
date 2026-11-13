@@ -172,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         // Settings setup
         etRelayHost = findViewById(R.id.etRelayHost);
         android.content.SharedPreferences prefs = getSharedPreferences("bridge_prefs", MODE_PRIVATE);
-        String savedHost = prefs.getString("relay_host", "gintamaremotedesktop.duckdns.org:8765");
+        String savedHost = prefs.getString("relay_host", "gintama-remote-desktop.onrender.com");
         etRelayHost.setText(savedHost);
         if (bridgeClient != null) {
             bridgeClient.setRelayHost(savedHost);

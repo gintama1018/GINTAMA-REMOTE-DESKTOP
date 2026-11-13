@@ -31,7 +31,7 @@ public class BridgeClient {
 
     private final String deviceId = "dev_phone_01";
     private final String peerDesktopId = "dev_laptop_01";
-    private String relayHost = "gintamaremotedesktop.duckdns.org:8765";
+    private String relayHost = "gintama-remote-desktop.onrender.com";
 
     private OkHttpClient httpClient;
     private WebSocket webSocket;
@@ -58,7 +58,30 @@ public class BridgeClient {
     public void connect() {
         disconnect();
 
-        String url = "ws://" + relayHost + "/v1/connect?deviceId=" + deviceId + "&role=phone";
+        String clean = (relayHost != null ? relayHost.trim() : "");
+        clean = clean.replaceAll("/+$", "");
+        if (clean.endsWith("/v1/connect")) {
+            clean = clean.substring(0, clean.length() - "/v1/connect".length());
+        }
+
+        String scheme = "ws://";
+        if (clean.startsWith("wss://")) {
+            scheme = "wss://";
+            clean = clean.substring(6);
+        } else if (clean.startsWith("ws://")) {
+            scheme = "ws://";
+            clean = clean.substring(5);
+        } else if (clean.startsWith("https://")) {
+            scheme = "wss://";
+            clean = clean.substring(8);
+        } else if (clean.startsWith("http://")) {
+            scheme = "ws://";
+            clean = clean.substring(7);
+        } else if (clean.contains(".onrender.com") || (!clean.contains(":") && !clean.contains("127.0.0.1") && !clean.contains("localhost"))) {
+            scheme = "wss://";
+        }
+
+        String url = scheme + clean + "/v1/connect?deviceId=" + deviceId + "&role=phone";
         Log.d(TAG, "Connecting to: " + url);
 
         Request request = new Request.Builder().url(url).build();
