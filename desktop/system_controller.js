@@ -185,13 +185,10 @@ function sleepDisplay() {
 
 // 7. Wake Display
 function wakeDisplay() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const psCmd = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("{ESC}")`;
     exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
-      if (error) {
-        return reject({ ok: false, error: error.message });
-      }
-      resolve({ ok: true, message: 'Display woken' });
+      resolve({ ok: !error, message: error ? error.message : 'Display woken' });
     });
   });
 }
@@ -227,8 +224,8 @@ function setVolume(percent) {
 
 // 11. Unlock Workstation / Wake & Type PIN
 function unlockWorkstation(pin) {
-  return new Promise((resolve, reject) => {
-    wakeDisplay(); // Wake display
+  return new Promise((resolve) => {
+    wakeDisplay().catch(() => {});
     const cleanPin = (pin || '').replace(/"/g, '`"');
     const psScript = `
       Add-Type -AssemblyName System.Windows.Forms;
@@ -243,10 +240,7 @@ function unlockWorkstation(pin) {
       }
     `;
     exec(`powershell -NoProfile -Command "${psScript.replace(/\r?\n/g, ' ')}"`, (error) => {
-      if (error) {
-        return reject({ ok: false, error: error.message });
-      }
-      resolve({ ok: true, message: 'Workstation unlock sequence dispatched' });
+      resolve({ ok: !error, message: error ? error.message : 'Workstation unlock sequence dispatched' });
     });
   });
 }

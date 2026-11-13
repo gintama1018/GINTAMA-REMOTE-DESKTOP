@@ -381,6 +381,14 @@ function startKeepAlivePing() {
   }, 10 * 60 * 1000); // 10 minutes
 }
 
+// Global crash protection
+process.on('unhandledRejection', (reason) => {
+  console.error('[Agent] ⚠️ Caught Unhandled Rejection:', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Agent] ⚠️ Caught Uncaught Exception:', err.message);
+});
+
 // Start Agent & Keep-Alive
 connectToRelay();
 startKeepAlivePing();
