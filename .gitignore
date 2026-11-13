@@ -4,4 +4,6 @@ build/
 *.log
 .DS_Store
 *.tmp
+ui_design/
+*.zip
 

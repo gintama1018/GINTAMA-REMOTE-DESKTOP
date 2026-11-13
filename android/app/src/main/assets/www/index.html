@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#faf5ee"/>
+  <title>Bridge Remote</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Manrope:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#c2652a",
+            "primary-container": "#e08850",
+            "primary-fixed": "#fbe8d8",
+            "primary-fixed-dim": "#f0a878",
+            "on-primary": "#ffffff",
+            "on-primary-fixed": "#401a08",
+            "secondary": "#78706a",
+            "secondary-container": "#eae2da",
+            "on-secondary-container": "#605850",
+            "tertiary": "#8c3c3c",
+            "tertiary-container": "#d47070",
+            "surface": "#faf5ee",
+            "surface-dim": "#dcd6cc",
+            "surface-bright": "#faf5ee",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f6f0e8",
+            "surface-container": "#f2ece4",
+            "surface-container-high": "#ece6dc",
+            "surface-container-highest": "#e6e0d6",
+            "on-surface": "#3a302a",
+            "on-surface-variant": "#605850",
+            "outline": "#9a9088",
+            "outline-variant": "#d8d0c8",
+            "error": "#c0392b",
+            "error-container": "#fce4e0"
+          },
+          fontFamily: {
+            headline: ["EB Garamond", "Georgia", "serif"],
+            body: ["Manrope", "-apple-system", "sans-serif"],
+            label: ["Manrope", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+  
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body {
+      width: 100vw;
+      margin: 0;
+      padding: 0;
+      background-color: #faf5ee;
+      color: #3a302a;
+      overscroll-behavior: none;
+      user-select: none;
+      font-family: 'Manrope', -apple-system, sans-serif;
+    }
+    .pb-safe { padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px); }
+    .pt-safe { padding-top: max(env(safe-area-inset-top, 0px), 12px); }
+    ::-webkit-scrollbar { display: none; }
+    
+    /* Splash Screen Animation */
+    #splash-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: #faf5ee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s;
+    }
+    .logo-pulse-ring {
+      animation: pulseGlow 2.4s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .logo-badge-bounce {
+      animation: badgeBounce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes pulseGlow {
+      0% { transform: scale(0.85); opacity: 0.8; }
+      50% { transform: scale(1.25); opacity: 0.15; }
+      100% { transform: scale(0.85); opacity: 0.8; }
+    }
+    @keyframes badgeBounce {
+      0% { transform: scale(0.4); opacity: 0; }
+      60% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1.0); opacity: 1; }
+    }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.25s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-surface font-body flex flex-col min-h-screen text-on-surface antialiased">
+
+  <!-- ======================================================== -->
+  <!-- 0. ANIMATED APP OPEN SPLASH SCREEN -->
+  <!-- ======================================================== -->
+  <div id="splash-screen">
+    <div class="relative flex items-center justify-center mb-6">
+      <div class="logo-pulse-ring absolute w-28 h-28 rounded-full bg-primary/20"></div>
+      <div class="logo-badge-bounce relative w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg border-2 border-surface">
+        <svg class="w-12 h-12 text-on-primary" viewBox="0 0 48 48" fill="none" stroke="currentColor">
+          <path d="M10 32 V22 C10 14.2 16.2 8 24 8 C31.8 8 38 14.2 38 22 V32" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M10 24 H38" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 3"/>
+          <circle cx="24" cy="18" r="3.5" fill="#fbe8d8"/>
+          <line x1="10" y1="32" x2="10" y2="38" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="38" y1="32" x2="38" y2="38" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+    
+    <h1 class="font-headline text-3xl font-medium tracking-tight text-on-surface text-center mb-1">Bridge Remote</h1>
+    <p class="font-label text-xs tracking-wider text-primary uppercase font-semibold">Autonomous AI Companion</p>
+    
+    <div class="w-24 h-0.5 bg-outline-variant mt-6 rounded-full overflow-hidden">
+      <div class="w-full h-full bg-primary origin-left animate-[pulse_1.5s_infinite]"></div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- HEADER -->
+  <!-- ======================================================== -->
+  <header class="fixed top-0 w-full z-40 pt-safe bg-surface/85 backdrop-blur-xl border-b border-outline-variant/30">
+    <div class="h-14 px-5 flex items-center justify-between">
+      <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-low shadow-[0_2px_12px_rgba(58,48,42,0.04)]" id="header-status-pill">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse" id="status-dot"></span>
+        <span class="text-[11px] font-semibold tracking-wide text-on-surface uppercase" id="status-text">Bridge · Online</span>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <button onclick="switchTab('inspect')" class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors" title="Inspect Diff">
+          <span class="material-symbols-outlined text-[18px]">code</span>
+        </button>
+        <button onclick="switchTab('terminal')" class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors" title="Live Terminal">
+          <span class="material-symbols-outlined text-[18px]">terminal</span>
+        </button>
+        <button onclick="switchTab('settings')" class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm" title="Settings">
+          <span class="material-symbols-outlined text-on-primary text-[18px]">settings</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================== -->
+  <!-- MAIN SCROLLABLE CONTENT (ZERO OVERFLOW) -->
+  <!-- ======================================================== -->
+  <main class="flex-1 w-full max-w-md mx-auto px-5 pt-20 pb-28">
+
+    <!-- ====================================================== -->
+    <!-- TAB 1: AUTHORIZE (APPROVAL CARD & SLIDER) -->
+    <!-- ====================================================== -->
+    <div id="tab-authorize" class="tab-content active">
+      <!-- Dynamic Capsule (Host Details) -->
+      <div class="w-full flex justify-center mb-5">
+        <div class="group flex flex-col items-center bg-surface-container-low hover:bg-surface-container transition-all duration-300 rounded-full px-4 py-2 cursor-pointer shadow-sm active:scale-[0.98]" id="host-capsule" role="button">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            <span class="font-body text-xs font-semibold tracking-tight text-on-surface" id="auth-host-title">Laptop Target · Active Relay</span>
+            <span class="material-symbols-outlined text-[16px] text-on-surface-variant transition-transform duration-300" id="capsule-icon">expand_more</span>
+          </div>
+          <!-- Progressive Capsule Specs Drawer -->
+          <div class="hidden flex-col items-center gap-1.5 pt-2 pb-1 text-[11px] font-body text-on-surface-variant w-full" id="capsule-drawer">
+            <div class="flex items-center justify-between w-full px-2 gap-4">
+              <span>Bridge Relay</span>
+              <span class="font-mono text-on-surface font-medium truncate max-w-[140px]" id="auth-relay-host">onrender.com</span>
+            </div>
+            <div class="flex items-center justify-between w-full px-2 gap-4">
+              <span>Channel</span>
+              <span class="font-mono text-on-surface font-medium">WSS · TLS 1.3</span>
+            </div>
+            <div class="flex items-center justify-between w-full px-2 gap-4">
+              <span>Fail-Safe</span>
+              <span class="font-mono text-primary font-medium">Reverts on timeout</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Command Card -->
+      <div class="w-full bg-surface-container-lowest rounded-3xl p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden border border-outline-variant/30">
+        <!-- Ambient Warm Accent Scrim -->
+        <div class="absolute -top-12 -right-12 w-32 h-32 bg-primary-fixed/40 rounded-full blur-2xl pointer-events-none"></div>
+
+        <!-- Agent Pill Badge -->
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-body font-medium mb-4 tracking-wide">
+          <span class="material-symbols-outlined text-[15px] text-primary">smart_toy</span>
+          <span id="card-agent-badge">Google Antigravity</span>
+        </div>
+
+        <h1 class="font-headline text-3xl text-on-surface font-normal tracking-tight mb-2" id="card-title">
+          Terminal Command
+        </h1>
+        <p class="font-body text-xs text-on-surface-variant mb-5 leading-relaxed max-w-xs" id="card-subtitle">
+          Agent requested permission to execute shell command on laptop.
+        </p>
+
+        <!-- Monospace Command Preview Box -->
+        <div class="w-full bg-surface-container-low rounded-xl px-4 py-3 mb-4 flex items-center justify-between font-mono text-xs text-on-surface border border-outline-variant/40">
+          <span class="truncate text-left text-on-surface pr-2 font-mono font-medium" id="card-command-text">git status</span>
+          <span class="text-[10px] text-primary font-semibold tracking-wider uppercase bg-primary-fixed px-2 py-0.5 rounded flex-shrink-0" id="card-tag">Tool</span>
+        </div>
+
+        <!-- Progressive Disclosure Trigger -->
+        <button class="group flex items-center justify-center gap-1.5 text-xs font-body font-medium text-primary hover:text-on-primary-fixed-variant transition-colors py-1.5 px-3 rounded-full hover:bg-surface-container-low mb-1" id="toggle-specs-btn" type="button">
+          <span id="toggle-label">Tap to reveal payload & sandbox specs</span>
+          <span class="material-symbols-outlined text-[16px] transition-transform duration-300" id="toggle-chevron">keyboard_arrow_down</span>
+        </button>
+
+        <!-- Expandable Specs Panel -->
+        <div class="hidden w-full flex-col gap-2 pt-3 text-left font-body text-xs text-on-surface-variant" id="specs-panel">
+          <div class="bg-surface-container-low p-3.5 rounded-xl flex flex-col gap-2 border border-outline-variant/20">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px]">Request ID</span>
+              <span class="font-mono text-on-surface text-[11px] font-semibold" id="card-rid">demo_01</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px]">Working Directory</span>
+              <span class="font-mono text-on-surface text-[11px] truncate max-w-[160px]" id="card-cwd">REMOSTE</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px]">Timeout Boundary</span>
+              <span class="font-mono text-primary text-[11px] font-medium">120s monotonic</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Slide to Authorize Control -->
+      <div class="w-full mt-6 flex flex-col items-center">
+        <div class="relative w-full h-14 bg-surface-container rounded-full p-1.5 flex items-center select-none overflow-hidden shadow-inner border border-outline-variant/30" id="slider-track">
+          <!-- Centered Instruction Prompt -->
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span class="font-body text-xs font-bold text-on-surface-variant tracking-wider uppercase pl-6 transition-opacity duration-200" id="slider-prompt">
+              Slide to Authorize
+            </span>
+          </div>
+          <!-- Completed Track Fill -->
+          <div class="absolute left-0 top-0 bottom-0 bg-primary-fixed/60 rounded-full w-14 transition-all pointer-events-none" id="slider-fill"></div>
+          <!-- Draggable Terracotta Thumb -->
+          <div class="relative z-10 w-11 h-11 bg-primary text-on-primary rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing shadow-md transition-transform duration-75" id="slider-thumb">
+            <span class="material-symbols-outlined text-[20px]" id="thumb-icon">arrow_forward</span>
+          </div>
+        </div>
+
+        <!-- Secondary Minimal Actions -->
+        <div class="grid grid-cols-2 gap-3 w-full mt-4">
+          <button class="w-full h-11 rounded-full bg-surface-container-low hover:bg-surface-container active:scale-[0.98] text-on-surface font-body text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm" id="inspect-btn" type="button" onclick="openInspectModal()">
+            <span class="material-symbols-outlined text-[16px] text-on-surface-variant">terminal</span>
+            Inspect Diff
+          </button>
+          <button class="w-full h-11 rounded-full bg-surface-container-low hover:bg-tertiary-container hover:text-on-tertiary active:scale-[0.98] text-tertiary font-body text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm" id="decline-btn" type="button">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+            Decline
+          </button>
+        </div>
+
+        <!-- Discreet Trust Badge -->
+        <div class="flex items-center gap-1.5 mt-5 text-[11px] font-body text-on-surface-variant opacity-80 select-none">
+          <span class="material-symbols-outlined text-[14px] text-primary">lock</span>
+          <span>Encrypted Outbound Tunnel · Zero Open Ports</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspect Modal Drawer -->
+    <div class="fixed inset-0 z-50 bg-[#3a302a]/50 backdrop-blur-sm hidden items-end sm:items-center justify-center p-4" id="inspect-modal">
+      <div class="bg-surface-container-lowest w-full max-w-sm rounded-3xl p-6 shadow-xl flex flex-col gap-4 border border-outline-variant/40">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+            <h2 class="font-headline text-xl text-on-surface">Payload Fingerprint</h2>
+          </div>
+          <button class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant" onclick="closeInspectModal()" type="button">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+        <pre class="bg-surface-container-low p-3.5 rounded-xl font-mono text-[11px] text-on-surface overflow-x-auto leading-relaxed border border-outline-variant/30" id="inspect-json"><code>{
+  "agent": "google-antigravity",
+  "tool": "run_command",
+  "command": "git status",
+  "target": "dev_laptop_01",
+  "sandboxed": true
+}</code></pre>
+        <button class="w-full h-11 rounded-full bg-primary text-on-primary text-xs font-semibold font-body" onclick="closeInspectModal()" type="button">
+          Return to Authorization
+        </button>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- TAB 2: CONTROLS (HARDWARE & DESKTOP SNAPSHOT) -->
+    <!-- ====================================================== -->
+    <div id="tab-controls" class="tab-content">
+      <div class="flex flex-col gap-6">
+        <!-- Host Banner -->
+        <div class="bg-surface-container-low rounded-2xl p-5 shadow-sm flex flex-col gap-3 border border-outline-variant/30">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary">
+                <span class="material-symbols-outlined text-[22px]">laptop</span>
+              </div>
+              <div>
+                <h2 class="font-headline text-lg font-semibold tracking-tight text-on-surface">Target Workstation</h2>
+                <p class="font-label text-xs text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+                  <span class="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                  <span id="ctrl-connection-status">Online · Render Relay</span>
+                </p>
+              </div>
+            </div>
+            <span class="px-3 py-1 rounded-full bg-surface-container-highest text-on-surface font-label text-xs font-medium flex items-center gap-1.5" id="ctrl-battery-badge">
+              <span class="material-symbols-outlined text-[15px] text-primary">battery_charging_full</span>
+              <span id="ctrl-battery-text">Laptop Active</span>
+            </span>
+          </div>
+          <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20">
+            <span class="font-label text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Session Cipher</span>
+            <span class="font-label text-xs text-secondary font-mono">TLS-1.3 · chacha20-poly1305</span>
+          </div>
+        </div>
+
+        <!-- Immediate Actions Grid -->
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="font-headline text-base font-semibold text-on-surface">Immediate Actions</h3>
+            <span class="font-label text-[11px] text-secondary">Zero-Latency Bus</span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Lock Laptop -->
+            <button class="group relative flex items-center justify-between px-4 py-3.5 bg-surface-container-lowest hover:bg-surface-container transition-all rounded-2xl shadow-sm text-left active:scale-[0.98] border border-outline-variant/30" id="lock-btn" onclick="lockLaptopAction()">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+                  <span class="material-symbols-outlined text-[18px]">lock</span>
+                </div>
+                <span class="font-label text-xs font-semibold text-on-surface truncate">Lock PC</span>
+              </div>
+              <span class="font-label text-[10px] text-secondary">Instant</span>
+            </button>
+
+            <!-- Sleep Screen Toggle -->
+            <button class="group relative flex items-center justify-between px-4 py-3.5 bg-surface-container-lowest hover:bg-surface-container transition-all rounded-2xl shadow-sm text-left active:scale-[0.98] border border-outline-variant/30" id="display-btn" onclick="toggleDisplaySleep()">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+                  <span class="material-symbols-outlined text-[18px]" id="display-icon">dark_mode</span>
+                </div>
+                <span class="font-label text-xs font-semibold text-on-surface truncate" id="display-label">Sleep Screen</span>
+              </div>
+              <span class="material-symbols-outlined text-secondary text-[16px]">chevron_right</span>
+            </button>
+          </div>
+
+          <!-- Audio & Volume Pill Strip -->
+          <div class="bg-surface-container-lowest rounded-full p-2 pl-4 flex items-center justify-between shadow-sm gap-3 border border-outline-variant/30">
+            <button class="flex items-center gap-2 text-on-surface" id="mute-toggle" onclick="toggleMute()">
+              <span class="material-symbols-outlined text-primary text-[20px]" id="mute-icon">volume_up</span>
+              <span class="font-label text-xs font-medium" id="mute-text">Sound Active</span>
+            </button>
+            <div class="flex items-center gap-2 flex-1 max-w-[140px] pr-2">
+              <input class="w-full accent-primary h-1 bg-surface-container-high rounded-full appearance-none cursor-pointer" id="volume-slider" max="100" min="0" oninput="updateVolume(this.value)" type="range" value="65"/>
+              <span class="font-label text-[11px] text-secondary font-mono w-7 text-right" id="vol-indicator">65%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Desktop Snapshot Tile -->
+        <div class="bg-surface-container-low rounded-2xl p-5 shadow-sm flex flex-col gap-4 border border-outline-variant/30">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[18px]">visibility</span>
+              <h3 class="font-headline text-base font-semibold text-on-surface">Live Desktop Display</h3>
+            </div>
+            <span class="font-label text-[11px] text-secondary" id="snapshot-age">Tap to capture</span>
+          </div>
+
+          <!-- Snapshot Preview Container -->
+          <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-surface-container-highest shadow-inner flex items-center justify-center border border-outline-variant/40">
+            <img class="w-full h-full object-cover transition-opacity duration-300" id="snapshot-img" src="" alt="Desktop Snapshot" style="display: none;"/>
+            <div id="snapshot-placeholder" class="flex flex-col items-center justify-center text-on-surface-variant p-4">
+              <span class="material-symbols-outlined text-4xl mb-2 text-primary">screenshot</span>
+              <span class="text-xs font-medium">No snapshot captured yet</span>
+              <span class="text-[10px] text-secondary mt-1">Tap refresh below for live 720p frame</span>
+            </div>
+            <div class="absolute bottom-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              <span class="font-label text-[10px] text-on-surface font-semibold tracking-wide">Frame Buffer · 720p JPEG</span>
+            </div>
+          </div>
+
+          <!-- Refresh Action Button -->
+          <div class="flex items-center justify-between gap-3">
+            <button class="flex-1 py-3 px-4 bg-primary text-on-primary hover:opacity-95 transition-all rounded-full flex items-center justify-center gap-2 font-label text-xs font-semibold shadow-sm active:scale-[0.98]" id="refresh-btn" onclick="captureDesktopSnapshot()">
+              <span class="material-symbols-outlined text-[16px]" id="refresh-spinner">sync</span>
+              <span>Capture Screen Snapshot</span>
+            </button>
+            <button class="w-10 h-10 rounded-full bg-surface-container-lowest hover:bg-surface-container flex items-center justify-center text-on-surface-variant shadow-sm border border-outline-variant/30" onclick="testPingHost()" title="Ping Relay">
+              <span class="material-symbols-outlined text-[18px]">network_check</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- TAB 3: APPS (PROCESS CONTROL) -->
+    <!-- ====================================================== -->
+    <div id="tab-apps" class="tab-content">
+      <div class="flex flex-col gap-5">
+        <div class="flex items-baseline justify-between">
+          <div>
+            <span class="text-[11px] font-semibold tracking-widest text-primary uppercase">Remote Processes</span>
+            <h2 class="font-headline text-2xl font-medium text-on-surface tracking-tight mt-0.5">Running Apps</h2>
+          </div>
+          <button onclick="fetchActiveApps()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant text-[11px] font-semibold hover:text-primary transition-all active:scale-95">
+            <span class="material-symbols-outlined text-[14px]">refresh</span>
+            <span>Reload</span>
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative w-full">
+          <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+          <input class="w-full bg-surface-container-lowest text-on-surface placeholder:text-outline text-xs rounded-xl pl-9 pr-4 py-2.5 outline-none shadow-sm border border-outline-variant/30 focus:border-primary" id="appSearch" placeholder="Filter by name or PID..." type="text" oninput="filterApps()"/>
+        </div>
+
+        <!-- Category Filter Segment -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1" id="filterPills">
+          <button class="filter-btn px-4 py-1.5 rounded-full text-xs font-label font-medium bg-primary text-on-primary" data-filter="all" onclick="setAppFilter('all')">
+            All
+          </button>
+          <button class="filter-btn px-4 py-1.5 rounded-full text-xs font-label font-medium bg-surface-container text-on-surface-variant" data-filter="agent" onclick="setAppFilter('agent')">
+            Agents
+          </button>
+          <button class="filter-btn px-4 py-1.5 rounded-full text-xs font-label font-medium bg-surface-container text-on-surface-variant" data-filter="browser" onclick="setAppFilter('browser')">
+            Browsers
+          </button>
+          <button class="filter-btn px-4 py-1.5 rounded-full text-xs font-label font-medium bg-surface-container text-on-surface-variant" data-filter="terminal" onclick="setAppFilter('terminal')">
+            Terminals
+          </button>
+        </div>
+
+        <!-- Process List Container -->
+        <div class="flex flex-col gap-3" id="processList">
+          <div class="text-center py-8 text-on-surface-variant text-xs">
+            Tap Reload above to scan active processes on laptop.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- TAB 4: TUNNELS & TOPOLOGY -->
+    <!-- ====================================================== -->
+    <div id="tab-tunnels" class="tab-content">
+      <div class="flex flex-col gap-6">
+        <div class="flex items-baseline justify-between px-1">
+          <div>
+            <span class="text-[11px] font-semibold tracking-widest text-primary uppercase">Active Relay</span>
+            <h1 class="font-headline text-3xl font-medium tracking-tight text-on-surface mt-0.5">Tunnels & Topology</h1>
+          </div>
+          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-[11px] font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+            Cloud Hub
+          </div>
+        </div>
+
+        <!-- Host Card & Topology Drawer -->
+        <div class="group bg-surface-container-lowest rounded-3xl p-5 shadow-sm border border-outline-variant/30 cursor-pointer" id="host-card" onclick="toggleTopologyDrawer()">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3.5 min-w-0">
+              <div class="w-11 h-11 rounded-full bg-secondary-container flex items-center justify-center text-primary flex-shrink-0">
+                <span class="material-symbols-outlined text-[22px]">laptop</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 class="text-[15px] font-semibold text-on-surface truncate">Laptop Companion</h2>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-[10px] font-semibold text-primary">live</span>
+                </div>
+                <p class="text-[12px] text-on-surface-variant font-mono mt-0.5">outbound-ws · 127.0.0.1:49152</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 text-[12px] font-medium text-primary pl-2 flex-shrink-0">
+              <span>Topology</span>
+              <span class="material-symbols-outlined text-[20px] transition-transform duration-300" id="topo-chevron">expand_more</span>
+            </div>
+          </div>
+
+          <!-- Expandable Topology Diagram -->
+          <div class="hidden pt-4" id="topo-drawer">
+            <div class="pt-4 border-t border-outline-variant/20 bg-surface-container-low/60 rounded-2xl p-4">
+              <div class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mb-3">Tunnel Topology Diagram</div>
+              <div class="relative flex items-center justify-between px-2 py-3">
+                <svg class="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 300 60">
+                  <line stroke="#d8d0c8" stroke-dasharray="4 3" stroke-width="1.5" x1="45" x2="255" y1="30" y2="30"></line>
+                  <circle cx="150" cy="30" fill="#c2652a" r="3.5">
+                    <animate attributeName="cx" dur="3s" repeatCount="indefinite" values="45;255;45"></animate>
+                    <animate attributeName="opacity" dur="3s" repeatCount="indefinite" values="0.3;1;0.3"></animate>
+                  </circle>
+                </svg>
+
+                <div class="relative z-10 flex flex-col items-center">
+                  <div class="w-10 h-10 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface border border-outline-variant/40">
+                    <span class="material-symbols-outlined text-[18px]">smartphone</span>
+                  </div>
+                  <span class="text-[10px] font-medium text-on-surface mt-1.5">Phone</span>
+                </div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                  <div class="w-10 h-10 rounded-full bg-primary-fixed text-on-primary-fixed shadow-md flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[18px]">hub</span>
+                  </div>
+                  <span class="text-[10px] font-semibold text-primary mt-1.5">Render Hub</span>
+                </div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                  <div class="w-10 h-10 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface border border-outline-variant/40">
+                    <span class="material-symbols-outlined text-[18px]">laptop</span>
+                  </div>
+                  <span class="text-[10px] font-medium text-on-surface mt-1.5">Laptop</span>
+                </div>
+              </div>
+
+              <div class="mt-3 flex items-center justify-between text-[11px] text-on-surface-variant px-1 pt-2 border-t border-outline-variant/20">
+                <span class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Encrypted Outbound Tunnel
+                </span>
+                <span class="font-mono text-[10px]">Render 24/7</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invariants Card with Apple-Style Toggles -->
+        <div class="bg-surface-container-lowest rounded-3xl p-5 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-on-surface-variant">Security Invariants</span>
+          
+          <div class="flex items-center justify-between py-1">
+            <div class="pr-3">
+              <div class="text-[13px] font-semibold text-on-surface">Strict Timeout Fallback</div>
+              <div class="text-[11px] text-on-surface-variant">Revert to local prompt if phone is offline</div>
+            </div>
+            <button aria-checked="true" class="w-11 h-6 rounded-full bg-primary relative transition-colors p-0.5" onclick="toggleSwitch(this)" type="button">
+              <span class="block w-5 h-5 rounded-full bg-white shadow-sm translate-x-5 transition-transform"></span>
+            </button>
+          </div>
+          
+          <div class="h-[1px] bg-outline-variant/20"></div>
+
+          <div class="flex items-center justify-between py-1">
+            <div class="pr-3">
+              <div class="text-[13px] font-semibold text-on-surface">Zero Inbound Ports</div>
+              <div class="text-[11px] text-on-surface-variant">Both devices dial outward via WebSockets</div>
+            </div>
+            <button aria-checked="true" class="w-11 h-6 rounded-full bg-primary relative transition-colors p-0.5" onclick="toggleSwitch(this)" type="button">
+              <span class="block w-5 h-5 rounded-full bg-white shadow-sm translate-x-5 transition-transform"></span>
+            </button>
+          </div>
+
+          <div class="h-[1px] bg-outline-variant/20"></div>
+
+          <div class="flex items-center justify-between py-1">
+            <div class="pr-3">
+              <div class="text-[13px] font-semibold text-on-surface">Biometric Step-Up</div>
+              <div class="text-[11px] text-on-surface-variant">Require fingerprint for destructive commands</div>
+            </div>
+            <button aria-checked="false" class="w-11 h-6 rounded-full bg-surface-container-high relative transition-colors p-0.5" onclick="toggleSwitch(this)" type="button">
+              <span class="block w-5 h-5 rounded-full bg-white shadow-sm translate-x-0 transition-transform"></span>
+            </button>
+          </div>
+        </div>
+
+        <button class="w-full py-4 px-6 rounded-full bg-primary text-on-primary font-medium text-[15px] tracking-tight shadow-md flex items-center justify-center gap-2" type="button" onclick="switchTab('settings')">
+          <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+          <span>Pair New Host</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- TAB 5: TERMINAL STREAM -->
+    <!-- ====================================================== -->
+    <div id="tab-terminal" class="tab-content">
+      <div class="flex flex-col gap-4">
+        <div class="flex items-center justify-between px-1">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+            <span class="font-mono text-[11px] font-semibold text-on-surface">Antigravity Stream</span>
+          </div>
+          <button onclick="clearTerminal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface-variant text-[11px] font-semibold">
+            <span class="material-symbols-outlined text-[14px]">cleaning_services</span>
+            <span>Flush</span>
+          </button>
+        </div>
+
+        <!-- Telemetry Summary Pills -->
+        <div class="grid grid-cols-3 gap-2.5">
+          <div class="p-3 rounded-xl bg-surface-container-low flex flex-col justify-between shadow-sm border border-outline-variant/30">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] tracking-wider uppercase font-semibold text-on-surface-variant">RTT</span>
+              <span class="material-symbols-outlined text-primary text-[14px]">show_chart</span>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span class="font-mono text-base font-bold text-on-surface" id="term-rtt">18</span>
+              <span class="text-[11px] text-on-surface-variant font-mono">ms</span>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-container-low flex flex-col justify-between shadow-sm border border-outline-variant/30">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] tracking-wider uppercase font-semibold text-on-surface-variant">Load</span>
+              <span class="material-symbols-outlined text-primary text-[14px]">speed</span>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span class="font-mono text-base font-bold text-on-surface">0.0</span>
+              <span class="text-[11px] text-on-surface-variant font-mono">%</span>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-surface-container-low flex flex-col justify-between shadow-sm border border-outline-variant/30">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] tracking-wider uppercase font-semibold text-on-surface-variant">Mesh</span>
+              <span class="material-symbols-outlined text-primary text-[14px]">lock</span>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1">
+              <span class="font-mono text-[12px] font-bold text-on-surface truncate">Zero Port</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal Output View -->
+        <div class="w-full bg-[#1e242b] rounded-2xl p-4 font-mono text-xs text-[#a9b7c6] shadow-sm min-h-[340px] max-h-[460px] overflow-y-auto leading-relaxed border border-[#333d47]" id="terminal-output">
+          <div class="text-[#6272a4]">// Bridge Remote Execution Stream</div>
+          <div class="text-[#50fa7b]">&gt; Connected to Cloud Relay on Render (wss://gintama-remote-desktop.onrender.com)</div>
+          <div class="text-[#8be9fd]">&gt; Desktop agent IPC listening on 127.0.0.1:49152</div>
+          <div class="text-[#f1fa8c]">&gt; Ready for Antigravity tool approvals...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- TAB 6: INSPECT DIFF & BLAST RADIUS -->
+    <!-- ====================================================== -->
+    <div id="tab-inspect" class="tab-content">
+      <div class="flex flex-col gap-5">
+        <div class="flex flex-col gap-1.5">
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium tracking-wide self-start">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+            Blast Radius Inspector
+          </div>
+          <h1 class="font-headline text-3xl text-on-surface leading-tight tracking-tight">
+            Payload &amp; Impact
+          </h1>
+        </div>
+
+        <!-- Blast Radius Card -->
+        <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed">
+                <span class="material-symbols-outlined text-[16px]">radar</span>
+              </div>
+              <div>
+                <span class="text-[10px] uppercase tracking-wider text-on-surface-variant font-label block">Impact Horizon</span>
+                <span class="text-xs font-semibold text-on-surface">Zero Edge Ingress Drift</span>
+              </div>
+            </div>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-medium">Safe</span>
+          </div>
+          
+          <div class="relative w-full h-12 bg-surface-container-low rounded-xl p-3 flex items-center justify-between overflow-hidden">
+            <span class="text-[11px] font-semibold text-on-surface">Transit Nodes</span>
+            <div class="flex items-center gap-1.5">
+              <span class="h-5 w-1 rounded-full bg-primary"></span>
+              <span class="h-3 w-1 rounded-full bg-primary/70"></span>
+              <span class="h-2 w-1 rounded-full bg-secondary-container"></span>
+              <span class="h-2 w-1 rounded-full bg-secondary-container"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Code Diff Container -->
+        <div class="rounded-2xl bg-surface-container-lowest p-4 shadow-sm border border-outline-variant/30 flex flex-col gap-2">
+          <span class="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Command Execution Diff</span>
+          <pre class="bg-surface-container-low p-3.5 rounded-xl font-mono text-[11px] overflow-x-auto leading-relaxed border border-outline-variant/30 text-on-surface"><code><span class="text-[#2e7d32]">+ toolCall: run_command</span>
+<span class="text-[#2e7d32]">+ args: { CommandLine: "echo test" }</span>
+<span class="text-[#c0392b]">- bypassSandbox: false</span>
+<span class="text-on-surface-variant">  cwd: C:\Users\hp\Downloads\REMOSTE</span></code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- TAB 7: SETTINGS -->
+    <!-- ====================================================== -->
+    <div id="tab-settings" class="tab-content">
+      <div class="flex flex-col gap-6">
+        <div>
+          <span class="text-[11px] font-semibold tracking-widest text-primary uppercase">Configuration</span>
+          <h2 class="font-headline text-2xl font-semibold text-on-surface tracking-tight mt-0.5">Relay Settings</h2>
+        </div>
+
+        <div class="rounded-3xl bg-surface-container-lowest shadow-sm p-5 flex flex-col gap-4 border border-outline-variant/30">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-on-surface flex items-center justify-between" for="relay-host-input">
+              <span>Cloud Relay Host</span>
+              <span class="text-[11px] font-mono text-primary font-semibold">Render SSL</span>
+            </label>
+            <div class="flex items-center gap-2 bg-surface-container-low rounded-xl px-4 py-3 border border-outline-variant/30">
+              <span class="material-symbols-outlined text-[18px] text-primary">dns</span>
+              <input class="bg-transparent flex-1 text-xs font-mono text-on-surface focus:outline-none" id="relay-host-input" spellcheck="false" type="text" value="gintama-remote-desktop.onrender.com"/>
+            </div>
+            <span class="text-[10px] text-on-surface-variant">Default domain for zero-config cellular connection.</span>
+          </div>
+
+          <!-- Secret Key Display with Reveal / Copy -->
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-on-surface flex items-center justify-between" for="token-val">
+              <span>Handshake Secret Token</span>
+              <span class="text-[11px] text-on-surface-variant">ChaCha20</span>
+            </label>
+            <div class="flex items-center gap-2 bg-surface-container-low rounded-xl px-4 py-2.5 border border-outline-variant/30">
+              <span class="material-symbols-outlined text-[18px] text-on-surface-variant">key</span>
+              <input class="bg-transparent flex-1 text-xs font-mono tracking-wider text-on-surface focus:outline-none select-all" id="token-val" readonly="" type="password" value="br_sec_9948aef220b3c78891d4e"/>
+              <button class="text-[11px] font-semibold text-primary px-2 py-0.5 rounded-full" id="toggle-token-btn" type="button" onclick="toggleTokenVisibility()">Reveal</button>
+            </div>
+          </div>
+
+          <button onclick="saveAndReconnectRelay()" class="w-full mt-2 bg-primary text-on-primary py-3.5 rounded-full text-xs font-semibold tracking-wide shadow-sm hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-[16px]">sync</span>
+            <span>Save &amp; Connect</span>
+          </button>
+        </div>
+
+        <!-- Keep-Alive Status -->
+        <div class="rounded-3xl bg-surface-container-lowest shadow-sm p-5 border border-outline-variant/30 flex flex-col gap-3">
+          <span class="text-[11px] font-semibold tracking-wider uppercase text-on-surface-variant">Render 24/7 Keep-Alive</span>
+          <p class="text-xs text-on-surface-variant leading-relaxed">
+            Cronjob &amp; laptop agent automatically heartbeat the server every 10 minutes to prevent Render free-tier sleep.
+          </p>
+          <div class="flex items-center gap-2 text-xs font-semibold text-primary">
+            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+            <span>Permanent Awake Status: ACTIVE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- BOTTOM FLOATING NAVIGATION BAR -->
+  <!-- ======================================================== -->
+  <div class="fixed bottom-0 w-full z-40 pb-safe pointer-events-none flex justify-center">
+    <nav class="pointer-events-auto mb-3 mx-auto px-3 py-1.5 bg-surface-container-lowest/90 backdrop-blur-xl rounded-full shadow-[0_4px_24px_rgba(58,48,42,0.12)] border border-outline-variant/40 flex items-center gap-1">
+      <button class="nav-tab flex flex-col items-center justify-center min-w-[54px] h-12 text-primary font-bold transition-all" data-tab="authorize" onclick="switchTab('authorize')">
+        <span class="material-symbols-outlined text-[20px]">security</span>
+        <span class="text-[10px] tracking-tight mt-0.5">Authorize</span>
+      </button>
+      
+      <button class="nav-tab flex flex-col items-center justify-center min-w-[54px] h-12 text-on-surface-variant hover:text-on-surface transition-all" data-tab="controls" onclick="switchTab('controls')">
+        <span class="material-symbols-outlined text-[20px]">settings_remote</span>
+        <span class="text-[10px] tracking-tight mt-0.5">Controls</span>
+      </button>
+
+      <button class="nav-tab flex flex-col items-center justify-center min-w-[54px] h-12 text-on-surface-variant hover:text-on-surface transition-all" data-tab="apps" onclick="switchTab('apps')">
+        <span class="material-symbols-outlined text-[20px]">apps</span>
+        <span class="text-[10px] tracking-tight mt-0.5">Apps</span>
+      </button>
+
+      <button class="nav-tab flex flex-col items-center justify-center min-w-[54px] h-12 text-on-surface-variant hover:text-on-surface transition-all" data-tab="tunnels" onclick="switchTab('tunnels')">
+        <span class="material-symbols-outlined text-[20px]">hub</span>
+        <span class="text-[10px] tracking-tight mt-0.5">Tunnels</span>
+      </button>
+
+      <button class="nav-tab flex flex-col items-center justify-center min-w-[54px] h-12 text-on-surface-variant hover:text-on-surface transition-all" data-tab="settings" onclick="switchTab('settings')">
+        <span class="material-symbols-outlined text-[20px]">tune</span>
+        <span class="text-[10px] tracking-tight mt-0.5">Settings</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- JAVASCRIPT & MICRO-INTERACTION LOGIC -->
+  <!-- ======================================================== -->
+  <script>
+    let currentRid = 'demo_01';
+    let rawApps = [];
+    let currentFilter = 'all';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        splash.style.opacity = '0';
+        setTimeout(() => { splash.style.display = 'none'; }, 600);
+      }, 1400);
+
+      initSlideToAuthorize();
+      initSpecsDisclosure();
+      initCapsuleDrawer();
+    });
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.add('active');
+
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        if (btn.dataset.tab === tabId) {
+          btn.classList.add('text-primary', 'font-bold');
+          btn.classList.remove('text-on-surface-variant');
+        } else {
+          btn.classList.remove('text-primary', 'font-bold');
+          btn.classList.add('text-on-surface-variant');
+        }
+      });
+
+      if (tabId === 'apps' && rawApps.length === 0) {
+        fetchActiveApps();
+      }
+    }
+
+    function initCapsuleDrawer() {
+      const capsule = document.getElementById('host-capsule');
+      const drawer = document.getElementById('capsule-drawer');
+      const icon = document.getElementById('capsule-icon');
+
+      capsule.addEventListener('click', () => {
+        const isClosed = drawer.classList.contains('hidden');
+        if (isClosed) {
+          drawer.classList.remove('hidden');
+          drawer.classList.add('flex');
+          capsule.classList.remove('rounded-full');
+          capsule.classList.add('rounded-2xl');
+          icon.classList.add('rotate-180');
+        } else {
+          drawer.classList.add('hidden');
+          drawer.classList.remove('flex');
+          capsule.classList.add('rounded-full');
+          capsule.classList.remove('rounded-2xl');
+          icon.classList.remove('rotate-180');
+        }
+      });
+    }
+
+    function initSpecsDisclosure() {
+      const btn = document.getElementById('toggle-specs-btn');
+      const panel = document.getElementById('specs-panel');
+      const chevron = document.getElementById('toggle-chevron');
+      const label = document.getElementById('toggle-label');
+
+      btn.addEventListener('click', () => {
+        const isHidden = panel.classList.contains('hidden');
+        if (isHidden) {
+          panel.classList.remove('hidden');
+          panel.classList.add('flex');
+          chevron.classList.add('rotate-180');
+          label.textContent = 'Hide payload & sandbox specs';
+        } else {
+          panel.classList.add('hidden');
+          panel.classList.remove('flex');
+          chevron.classList.remove('rotate-180');
+          label.textContent = 'Tap to reveal payload & sandbox specs';
+        }
+      });
+    }
+
+    function openInspectModal() {
+      document.getElementById('inspect-modal').classList.replace('hidden', 'flex');
+    }
+
+    function closeInspectModal() {
+      document.getElementById('inspect-modal').classList.replace('flex', 'hidden');
+    }
+
+    function toggleTopologyDrawer() {
+      const drawer = document.getElementById('topo-drawer');
+      const chevron = document.getElementById('topo-chevron');
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+        chevron.classList.add('rotate-180');
+      } else {
+        drawer.classList.add('hidden');
+        chevron.classList.remove('rotate-180');
+      }
+    }
+
+    function toggleSwitch(btn) {
+      const isChecked = btn.getAttribute('aria-checked') === 'true';
+      const knob = btn.querySelector('span');
+      if (isChecked) {
+        btn.setAttribute('aria-checked', 'false');
+        btn.classList.remove('bg-primary');
+        btn.classList.add('bg-surface-container-high');
+        knob.classList.remove('translate-x-5');
+        knob.classList.add('translate-x-0');
+      } else {
+        btn.setAttribute('aria-checked', 'true');
+        btn.classList.remove('bg-surface-container-high');
+        btn.classList.add('bg-primary');
+        knob.classList.remove('translate-x-0');
+        knob.classList.add('translate-x-5');
+      }
+    }
+
+    function toggleDisplaySleep() {
+      const label = document.getElementById('display-label');
+      const icon = document.getElementById('display-icon');
+      if (label.textContent === 'Sleep Screen') {
+        label.textContent = 'Wake Screen';
+        icon.textContent = 'light_mode';
+        appendTerminal('> Display sleep triggered.');
+      } else {
+        label.textContent = 'Sleep Screen';
+        icon.textContent = 'dark_mode';
+        appendTerminal('> Display wake triggered.');
+      }
+    }
+
+    function toggleMute() {
+      const text = document.getElementById('mute-text');
+      const icon = document.getElementById('mute-icon');
+      if (text.textContent === 'Sound Active') {
+        text.textContent = 'Muted';
+        icon.textContent = 'volume_off';
+      } else {
+        text.textContent = 'Sound Active';
+        icon.textContent = 'volume_up';
+      }
+    }
+
+    function updateVolume(val) {
+      document.getElementById('vol-indicator').textContent = val + '%';
+    }
+
+    function toggleTokenVisibility() {
+      const tokenInput = document.getElementById('token-val');
+      const btn = document.getElementById('toggle-token-btn');
+      if (tokenInput.type === 'password') {
+        tokenInput.type = 'text';
+        btn.textContent = 'Hide';
+      } else {
+        tokenInput.type = 'password';
+        btn.textContent = 'Reveal';
+      }
+    }
+
+    function testPingHost() {
+      const rtt = Math.floor(Math.random() * 8) + 12;
+      document.getElementById('term-rtt').textContent = rtt;
+      appendTerminal(`> Ping to Relay: ${rtt}ms`);
+    }
+
+    function initSlideToAuthorize() {
+      const track = document.getElementById('slider-track');
+      const thumb = document.getElementById('slider-thumb');
+      const fill = document.getElementById('slider-fill');
+      const prompt = document.getElementById('slider-prompt');
+      const thumbIcon = document.getElementById('thumb-icon');
+
+      let isDragging = false;
+      let startX = 0;
+      let currentX = 0;
+      let maxSlide = 0;
+      let authorized = false;
+
+      function updateBounds() {
+        maxSlide = track.offsetWidth - thumb.offsetWidth - 12;
+      }
+      updateBounds();
+      window.addEventListener('resize', updateBounds);
+
+      function onStart(pageX) {
+        if (authorized) return;
+        isDragging = true;
+        startX = pageX - currentX;
+      }
+
+      function onMove(pageX) {
+        if (!isDragging || authorized) return;
+        currentX = Math.max(0, Math.min(pageX - startX, maxSlide));
+        thumb.style.transform = `translateX(${currentX}px)`;
+        fill.style.width = `${currentX + 56}px`;
+        prompt.style.opacity = `${1 - (currentX / maxSlide) * 1.5}`;
+
+        if (currentX >= maxSlide * 0.92) {
+          completeAuthorization();
+        }
+      }
+
+      function onEnd() {
+        if (!isDragging || authorized) return;
+        isDragging = false;
+        if (currentX < maxSlide * 0.92) {
+          resetSlider();
+        }
+      }
+
+      function completeAuthorization() {
+        authorized = true;
+        isDragging = false;
+        thumb.style.transform = `translateX(${maxSlide}px)`;
+        fill.style.width = '100%';
+        prompt.textContent = 'Authorized';
+        prompt.style.opacity = '1';
+        prompt.classList.add('text-primary');
+        thumbIcon.textContent = 'check';
+
+        if (window.Android && window.Android.sendDecision) {
+          window.Android.sendDecision(currentRid, 'allow');
+        }
+        appendTerminal(`> Command ${currentRid} APPROVED by handheld.`);
+
+        setTimeout(() => {
+          prompt.textContent = 'Handshake Complete';
+        }, 1200);
+      }
+
+      window.resetSlider = function() {
+        authorized = false;
+        isDragging = false;
+        currentX = 0;
+        thumb.style.transform = 'translateX(0px)';
+        fill.style.width = '56px';
+        prompt.style.opacity = '1';
+        prompt.textContent = 'Slide to Authorize';
+        prompt.classList.remove('text-primary', 'text-error');
+        thumbIcon.textContent = 'arrow_forward';
+      };
+
+      thumb.addEventListener('touchstart', (e) => onStart(e.touches[0].pageX), { passive: true });
+      window.addEventListener('touchmove', (e) => onMove(e.touches[0].pageX), { passive: true });
+      window.addEventListener('touchend', onEnd);
+
+      thumb.addEventListener('mousedown', (e) => onStart(e.pageX));
+      window.addEventListener('mousemove', (e) => onMove(e.pageX));
+      window.addEventListener('mouseup', onEnd);
+
+      document.getElementById('decline-btn').addEventListener('click', () => {
+        prompt.textContent = 'Authorization Declined';
+        prompt.classList.add('text-error');
+        thumb.style.transform = 'translateX(0px)';
+        fill.style.width = '0px';
+        if (window.Android && window.Android.sendDecision) {
+          window.Android.sendDecision(currentRid, 'deny');
+        }
+        appendTerminal(`> Command ${currentRid} DENIED by handheld.`);
+      });
+    }
+
+    function lockLaptopAction() {
+      if (window.Android && window.Android.lockLaptop) {
+        window.Android.lockLaptop();
+      }
+      appendTerminal('> Sent Lock signal to workstation.');
+    }
+
+    function captureDesktopSnapshot() {
+      const spinner = document.getElementById('refresh-spinner');
+      spinner.classList.add('animate-spin');
+      if (window.Android && window.Android.captureScreenshot) {
+        window.Android.captureScreenshot();
+      }
+    }
+
+    function refreshSystemStats() {
+      if (window.Android && window.Android.fetchSystemStats) {
+        window.Android.fetchSystemStats();
+      }
+    }
+
+    function fetchActiveApps() {
+      if (window.Android && window.Android.fetchRunningApps) {
+        window.Android.fetchRunningApps();
+      }
+    }
+
+    function setAppFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filter) {
+          btn.classList.add('bg-primary', 'text-on-primary');
+          btn.classList.remove('bg-surface-container', 'text-on-surface-variant');
+        } else {
+          btn.classList.remove('bg-primary', 'text-on-primary');
+          btn.classList.add('bg-surface-container', 'text-on-surface-variant');
+        }
+      });
+      filterApps();
+    }
+
+    function killApp(pid, name) {
+      if (window.Android && window.Android.closeApp) {
+        window.Android.closeApp(pid, true);
+      }
+      appendTerminal(`> Force terminated ${name} (PID: ${pid})`);
+      setTimeout(fetchActiveApps, 800);
+    }
+
+    function saveAndReconnectRelay() {
+      const input = document.getElementById('relay-host-input').value.trim();
+      if (window.Android && window.Android.saveSettings) {
+        window.Android.saveSettings(input);
+      }
+      appendTerminal(`> Reconnecting to Relay: ${input}`);
+    }
+
+    function appendTerminal(line) {
+      const box = document.getElementById('terminal-output');
+      const div = document.createElement('div');
+      div.textContent = line;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function clearTerminal() {
+      document.getElementById('terminal-output').innerHTML = '<div class="text-[#6272a4]">// Buffer flushed</div>';
+    }
+
+    function filterApps() {
+      const query = document.getElementById('appSearch').value.toLowerCase();
+      renderAppList(rawApps.filter(a => {
+        const matchesQuery = a.name.toLowerCase().includes(query) || String(a.pid).includes(query);
+        if (!matchesQuery) return false;
+        if (currentFilter === 'all') return true;
+        if (currentFilter === 'browser') return a.name.toLowerCase().includes('chrome') || a.name.toLowerCase().includes('edge') || a.name.toLowerCase().includes('firefox');
+        if (currentFilter === 'terminal') return a.name.toLowerCase().includes('cmd') || a.name.toLowerCase().includes('powershell') || a.name.toLowerCase().includes('bash') || a.name.toLowerCase().includes('terminal');
+        if (currentFilter === 'agent') return a.name.toLowerCase().includes('antigravity') || a.name.toLowerCase().includes('node') || a.name.toLowerCase().includes('python');
+        return true;
+      }));
+    }
+
+    function renderAppList(apps) {
+      const container = document.getElementById('processList');
+      if (!apps || apps.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-on-surface-variant text-xs">No active applications found.</div>';
+        return;
+      }
+
+      container.innerHTML = apps.map(app => `
+        <div class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-outline-variant/30 flex items-center justify-between">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+              <span class="material-symbols-outlined text-[18px]">terminal</span>
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-semibold text-on-surface truncate">${app.name}</div>
+              <div class="text-[10px] font-mono text-on-surface-variant">PID ${app.pid} · ${app.memory || 'Active'}</div>
+            </div>
+          </div>
+          <button onclick="killApp(${app.pid}, '${app.name}')" class="px-3 py-1 rounded-full bg-error-container text-error text-[11px] font-semibold hover:opacity-90 active:scale-95 transition-all">
+            Kill
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // Native Bridge Hooks
+    window.onApprovalRequest = function(item) {
+      currentRid = item.rid || 'req_01';
+      document.getElementById('card-command-text').textContent = item.command || 'echo ...';
+      document.getElementById('card-agent-badge').textContent = item.tool || 'run_command';
+      document.getElementById('card-rid').textContent = currentRid;
+      document.getElementById('card-cwd').textContent = item.cwd || 'workspace';
+      
+      const inspectData = {
+        agent: "google-antigravity",
+        tool: item.tool || "run_command",
+        command: item.command || "",
+        rid: currentRid,
+        cwd: item.cwd || "",
+        sandboxed: true
+      };
+      document.getElementById('inspect-json').innerHTML = `<code>${JSON.stringify(inspectData, null, 2)}</code>`;
+
+      resetSlider();
+      switchTab('authorize');
+      appendTerminal(`> Incoming approval request [${currentRid}]: ${item.command}`);
+    };
+
+    window.onAppsList = function(apps) {
+      rawApps = apps;
+      filterApps();
+    };
+
+    window.onScreenshot = function(dataUrl) {
+      const spinner = document.getElementById('refresh-spinner');
+      if (spinner) spinner.classList.remove('animate-spin');
+
+      const img = document.getElementById('snapshot-img');
+      const placeholder = document.getElementById('snapshot-placeholder');
+      const age = document.getElementById('snapshot-age');
+      
+      img.src = dataUrl;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+      age.textContent = 'Captured just now';
+      appendTerminal('> Received new desktop snapshot frame (720p).');
+    };
+
+    window.onConnectionState = function(connected) {
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+      if (connected) {
+        dot.className = 'w-2 h-2 rounded-full bg-primary animate-pulse';
+        text.textContent = 'Bridge · Online';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-error';
+        text.textContent = 'Bridge · Offline';
+      }
+    };
+  </script>
+</body>
+</html>
