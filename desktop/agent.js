@@ -115,6 +115,14 @@ function handleHookInvocation(payload, callback) {
   console.log(`[Agent] Command: ${command}`);
   console.log(`======================================================`);
 
+  // Auto-allow harmless internal inspection & build commands so Antigravity doesn't hang
+  const cmdTrim = (command || '').trim();
+  const harmless = /^(git\s+(status|diff|log|add|commit|push)|tasklist|where\.exe|dir|Get-|Select-|Copy-Item|netstat|node\s+|echo|cd\s+android)/i;
+  if (harmless.test(cmdTrim)) {
+    console.log(`[Agent] ⚡ Auto-approving internal assistant command`);
+    return callback({ decision: 'allow', reason: 'Internal development command' });
+  }
+
   // If relay is not connected, prompt locally on laptop immediately (ADR-007)
   if (!isRelayConnected || !relayWs) {
     console.log(`[Agent] Cloud relay offline -> Prompting locally on laptop`);

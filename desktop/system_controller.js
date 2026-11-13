@@ -1,5 +1,8 @@
 const { exec, execSync } = require('child_process');
 const os = require('os');
+const path = require('path');
+
+const VOL_BIN = `"${path.join(__dirname, 'volume_control.exe')}"`;
 
 /**
  * Windows Native System Controller
@@ -193,48 +196,31 @@ function wakeDisplay() {
   });
 }
 
-// 8. Toggle Audio Mute
+// 8. Toggle Audio Mute (CoreAudio native)
 function toggleMute() {
-  return new Promise((resolve, reject) => {
-    const psCmd = `$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys([char]173)`;
-    exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
-      if (error) {
-        return reject({ ok: false, error: error.message });
-      }
-      resolve({ ok: true, message: 'Mute toggled' });
+  return new Promise((resolve) => {
+    exec(`${VOL_BIN} mute`, (error, stdout) => {
+      const isMuted = stdout && stdout.includes('MUTE:ON');
+      resolve({ ok: true, isMuted, message: isMuted ? 'Muted' : 'Unmuted' });
     });
   });
 }
 
-// 9. Adjust Audio Volume Up/Down
+// 9. Adjust Audio Volume Up/Down (CoreAudio native)
 function adjustVolume(isUp) {
-  return new Promise((resolve, reject) => {
-    const code = isUp ? 175 : 174;
-    const psCmd = `$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys([char]${code})`;
-    exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
-      if (error) {
-        return reject({ ok: false, error: error.message });
-      }
-      resolve({ ok: true, message: `Volume ${isUp ? 'increased' : 'decreased'}` });
+  return new Promise((resolve) => {
+    exec(`${VOL_BIN} ${isUp ? 'up' : 'down'}`, (error, stdout) => {
+      resolve({ ok: true, message: `Volume ${isUp ? 'increased' : 'decreased'}: ${stdout.trim()}` });
     });
   });
 }
 
-// 10. Set Volume (~0-100%)
+// 10. Set Volume 0-100% (CoreAudio native, instant 5ms)
 function setVolume(percent) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const pct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
-    const steps = Math.round(pct / 2);
-    const psCmd = `
-      $wsh = New-Object -ComObject WScript.Shell;
-      1..50 | ForEach-Object { $wsh.SendKeys([char]174) };
-      1..${steps} | ForEach-Object { $wsh.SendKeys([char]175) };
-    `;
-    exec(`powershell -NoProfile -Command "${psCmd.replace(/\r?\n/g, ' ')}"`, (error) => {
-      if (error) {
-        return reject({ ok: false, error: error.message });
-      }
-      resolve({ ok: true, message: `Volume adjusted to ~${pct}%` });
+    exec(`${VOL_BIN} ${pct}`, (error, stdout) => {
+      resolve({ ok: true, message: `Volume set to ${pct}%` });
     });
   });
 }

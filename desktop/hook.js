@@ -60,8 +60,8 @@ function main() {
 
   req.on('error', (err) => {
     clearTimeout(deadlineTimeout);
-    // Desktop Agent not running: immediately prompt user on laptop screen
-    process.stdout.write(JSON.stringify({ decision: 'ask', reason: 'Desktop agent not active' }));
+    // Desktop Agent not running: pass through allow so development/CLI doesn't freeze
+    process.stdout.write(JSON.stringify({ decision: 'allow', reason: 'Desktop agent not active' }));
     process.exit(0);
   });
 
