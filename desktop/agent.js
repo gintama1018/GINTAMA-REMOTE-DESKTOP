@@ -278,10 +278,10 @@ async function handleIncomingEnvelope(envelope) {
 
       if (decision === 'allow') {
         item.resolve({
-          decision: 'auto_approve',
+          decision: 'allow',
           reason: 'Approved remotely by phone'
         });
-        console.log(`[Agent] 🟢 Responded to Antigravity: auto_approve!`);
+        console.log(`[Agent] 🟢 Responded to Antigravity: allow!`);
       } else {
         item.resolve({
           decision: 'deny',
@@ -292,7 +292,7 @@ async function handleIncomingEnvelope(envelope) {
     }
   }
 
-  // Case B: Phone requested a Remote Action (Lock, List Apps, Close App, System Stats)
+  // Case B: Phone requested a Remote Action (Lock, List Apps, Close App, System Stats, Screen Sleep, Volume)
   if (payload.t === 'action.request') {
     const action = payload.body?.action;
     const args = payload.body?.args || {};
@@ -305,6 +305,16 @@ async function handleIncomingEnvelope(envelope) {
     try {
       if (action === 'lock') {
         result = await systemController.lockScreen();
+      } else if (action === 'sleep_display') {
+        result = await systemController.sleepDisplay();
+      } else if (action === 'wake_display') {
+        result = await systemController.wakeDisplay();
+      } else if (action === 'toggle_mute') {
+        result = await systemController.toggleMute();
+      } else if (action === 'adjust_volume') {
+        result = await systemController.adjustVolume(Boolean(args.isUp));
+      } else if (action === 'set_volume') {
+        result = await systemController.setVolume(args.percent);
       } else if (action === 'list_apps') {
         result = await systemController.listRunningApps();
       } else if (action === 'close_app') {

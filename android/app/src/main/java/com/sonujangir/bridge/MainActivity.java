@@ -1,8 +1,14 @@
 package com.sonujangir.bridge;
 
 import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -147,7 +153,16 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
 
     @Override
     public void onSystemStatsReceived(String statsText) {
-        // Stats can be passed to terminal or controls
+        // Stats text
+    }
+
+    @Override
+    public void onSystemStatsData(JSONObject statsJson) {
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onSystemStats) window.onSystemStats(" + statsJson.toString() + ");", null);
+            }
+        });
     }
 
     @Override
@@ -201,6 +216,54 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         }
 
         @JavascriptInterface
+        public void sleepDisplay() {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.sleepDisplay();
+                }
+                Toast.makeText(MainActivity.this, "Display sleep signal sent", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void wakeDisplay() {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.wakeDisplay();
+                }
+                Toast.makeText(MainActivity.this, "Display wake signal sent", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void toggleMute() {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.toggleMute();
+                }
+                Toast.makeText(MainActivity.this, "Mute toggle sent to PC", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void adjustVolume(boolean isUp) {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.adjustVolume(isUp);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void setVolume(int percent) {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.setVolume(percent);
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void captureScreenshot() {
             runOnUiThread(() -> {
                 if (bridgeClient != null) {
@@ -235,6 +298,34 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                     bridgeClient.fetchSystemStats();
                 }
             });
+        }
+
+        @JavascriptInterface
+        public void copyToClipboard(String text) {
+            runOnUiThread(() -> {
+                try {
+                    ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("Bridge Remote", text);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(clip);
+                        Toast.makeText(MainActivity.this, "Copied to clipboard!", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (Exception ignored) {}
+            });
+        }
+
+        @JavascriptInterface
+        public void vibrate(int durationMs) {
+            try {
+                Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                if (v != null && v.hasVibrator()) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        v.vibrate(VibrationEffect.createOneShot(Math.min(durationMs, 400), VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else {
+                        v.vibrate(Math.min(durationMs, 400));
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
         @JavascriptInterface

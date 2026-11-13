@@ -25,6 +25,7 @@ public class BridgeClient {
         void onApprovalExpired(String rid);
         void onAppsListReceived(List<AppItem> apps);
         void onSystemStatsReceived(String statsText);
+        void onSystemStatsData(JSONObject statsJson);
         void onScreenshotReceived(byte[] imageBytes);
         void onActionSuccess(String message);
     }
@@ -188,7 +189,10 @@ public class BridgeClient {
                         }
                         sb.append("⚙️ CPU Cores: ").append(s.optInt("cpuCount", 0));
 
-                        mainHandler.post(() -> listener.onSystemStatsReceived(sb.toString()));
+                        mainHandler.post(() -> {
+                            listener.onSystemStatsReceived(sb.toString());
+                            listener.onSystemStatsData(s);
+                        });
                     } else if (body.has("imageBase64")) {
                         String b64 = body.getString("imageBase64");
                         byte[] imageBytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
@@ -280,6 +284,34 @@ public class BridgeClient {
             args.put("pid", pid);
             args.put("force", force);
             requestAction("close_app", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void sleepDisplay() {
+        requestAction("sleep_display", new JSONObject());
+    }
+
+    public void wakeDisplay() {
+        requestAction("wake_display", new JSONObject());
+    }
+
+    public void toggleMute() {
+        requestAction("toggle_mute", new JSONObject());
+    }
+
+    public void adjustVolume(boolean isUp) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("isUp", isUp);
+            requestAction("adjust_volume", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void setVolume(int percent) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("percent", percent);
+            requestAction("set_volume", args);
         } catch (Exception ignored) {}
     }
 }

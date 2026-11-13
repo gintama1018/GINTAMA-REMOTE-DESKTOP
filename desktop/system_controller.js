@@ -166,12 +166,90 @@ function takeScreenshot() {
   });
 }
 
+// 6. Sleep Display / Monitor Power Off
+function sleepDisplay() {
+  return new Promise((resolve, reject) => {
+    // SendMessage(HWND_BROADCAST=0xffff, WM_SYSCOMMAND=0x0112, SC_MONITORPOWER=0xf170, 2)
+    const psCmd = `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);' -Name "WinPower" -Namespace "Win32" -PassThru)::SendMessage(0xffff, 0x0112, 0xf170, 2)`;
+    exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
+      if (error) {
+        return reject({ ok: false, error: error.message });
+      }
+      resolve({ ok: true, message: 'Display set to sleep mode' });
+    });
+  });
+}
+
+// 7. Wake Display
+function wakeDisplay() {
+  return new Promise((resolve, reject) => {
+    const psCmd = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("{ESC}")`;
+    exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
+      if (error) {
+        return reject({ ok: false, error: error.message });
+      }
+      resolve({ ok: true, message: 'Display woken' });
+    });
+  });
+}
+
+// 8. Toggle Audio Mute
+function toggleMute() {
+  return new Promise((resolve, reject) => {
+    const psCmd = `$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys([char]173)`;
+    exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
+      if (error) {
+        return reject({ ok: false, error: error.message });
+      }
+      resolve({ ok: true, message: 'Mute toggled' });
+    });
+  });
+}
+
+// 9. Adjust Audio Volume Up/Down
+function adjustVolume(isUp) {
+  return new Promise((resolve, reject) => {
+    const code = isUp ? 175 : 174;
+    const psCmd = `$wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys([char]${code})`;
+    exec(`powershell -NoProfile -Command "${psCmd}"`, (error) => {
+      if (error) {
+        return reject({ ok: false, error: error.message });
+      }
+      resolve({ ok: true, message: `Volume ${isUp ? 'increased' : 'decreased'}` });
+    });
+  });
+}
+
+// 10. Set Volume (~0-100%)
+function setVolume(percent) {
+  return new Promise((resolve, reject) => {
+    const pct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const steps = Math.round(pct / 2);
+    const psCmd = `
+      $wsh = New-Object -ComObject WScript.Shell;
+      1..50 | ForEach-Object { $wsh.SendKeys([char]174) };
+      1..${steps} | ForEach-Object { $wsh.SendKeys([char]175) };
+    `;
+    exec(`powershell -NoProfile -Command "${psCmd.replace(/\r?\n/g, ' ')}"`, (error) => {
+      if (error) {
+        return reject({ ok: false, error: error.message });
+      }
+      resolve({ ok: true, message: `Volume adjusted to ~${pct}%` });
+    });
+  });
+}
+
 module.exports = {
   lockScreen,
   listRunningApps,
   closeApp,
   getSystemStats,
-  takeScreenshot
+  takeScreenshot,
+  sleepDisplay,
+  wakeDisplay,
+  toggleMute,
+  adjustVolume,
+  setVolume
 };
 
 // Self-test when run directly
