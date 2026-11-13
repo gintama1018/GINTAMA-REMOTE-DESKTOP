@@ -6,3 +6,4 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":49152" ^| findstr "LISTENIN
 )
 echo Bridge stopped successfully.
 pause
+

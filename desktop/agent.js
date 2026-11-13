@@ -60,6 +60,7 @@ const CONFIG = {
 // State
 let relayWs = null;
 let isRelayConnected = false;
+let isPhoneConnected = false;
 const pendingRequests = new Map(); // rid -> { resolve, deadline, toolCall }
 let seqCounter = 0;
 
@@ -114,10 +115,16 @@ function handleHookInvocation(payload, callback) {
   console.log(`[Agent] Command: ${command}`);
   console.log(`======================================================`);
 
-  // If relay is not connected, defer immediately to local prompt (ADR-007)
+  // If relay is not connected, prompt locally on laptop immediately (ADR-007)
   if (!isRelayConnected || !relayWs) {
-    console.log(`[Agent] Relay offline -> Deferring to local prompt`);
-    return callback({ decision: 'allow', reason: 'Remote bridge offline - deferred to local' });
+    console.log(`[Agent] Cloud relay offline -> Prompting locally on laptop`);
+    return callback({ decision: 'ask', reason: 'Remote bridge offline - deferred to local' });
+  }
+
+  // If phone is not connected, do NOT wait! Prompt on laptop screen immediately
+  if (!isPhoneConnected) {
+    console.log(`[Agent] ⚠️ Phone is not connected -> Prompting locally on laptop`);
+    return callback({ decision: 'ask', reason: 'Phone not connected - prompting locally' });
   }
 
   const rid = 'req_' + crypto.randomUUID().substring(0, 8);
@@ -183,7 +190,7 @@ function handleHookInvocation(payload, callback) {
       console.log(`[Agent] ⏱️ Request ${rid} timed out waiting for phone decision -> Deferring to local`);
       const req = pendingRequests.get(rid);
       pendingRequests.delete(rid);
-      req.resolve({ decision: 'allow', reason: 'Remote approval timed out' });
+      req.resolve({ decision: 'ask', reason: 'Remote approval timed out' });
 
       // Notify phone that request expired
       if (isRelayConnected && relayWs) {
@@ -243,9 +250,18 @@ function connectToRelay() {
 }
 
 // ==========================================
-// 3. Handle Messages from Phone
+// 3. Handle Messages from Phone & Relay
 // ==========================================
 async function handleIncomingEnvelope(envelope) {
+  // Presence notifications (phone online/offline)
+  if (envelope.class === 'presence') {
+    if (envelope.device === CONFIG.peerPhoneId) {
+      isPhoneConnected = (envelope.status === 'online');
+      console.log(`[Agent] 📱 Peer phone (${CONFIG.peerPhoneId}) is now: ${envelope.status.toUpperCase()}`);
+    }
+    return;
+  }
+
   const payload = envelope.payload;
   if (!payload || !payload.t) return;
 

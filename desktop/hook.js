@@ -4,7 +4,7 @@
  * 
  * Ultra-fast client called by Antigravity on tool execution.
  * Reads stdin -> forwards to Desktop Agent via local IPC -> prints decision to stdout.
- * Guarantees safe fail-safe defer (pass-through allow) on any error.
+ * Guarantees safe fail-safe defer (pass-through to local prompt: "ask") on any error.
  */
 
 const http = require('http');
@@ -15,16 +15,15 @@ function main() {
   try {
     stdinData = fs.readFileSync(0, 'utf8');
   } catch (err) {
-    // Stdin error: pass-through
-    process.stdout.write(JSON.stringify({ decision: 'allow' }));
+    process.stdout.write(JSON.stringify({ decision: 'ask', reason: 'Hook stdin error' }));
     process.exit(0);
   }
 
   // Fallback timer: hook must answer before Antigravity host timeout
   const deadlineTimeout = setTimeout(() => {
-    process.stdout.write(JSON.stringify({ decision: 'allow', reason: 'Hook client deadline reached' }));
+    process.stdout.write(JSON.stringify({ decision: 'ask', reason: 'Hook client deadline reached' }));
     process.exit(0);
-  }, 125000); // 125s
+  }, 125000);
 
   // Send to Desktop Agent local IPC
   const req = http.request({
@@ -44,9 +43,16 @@ function main() {
       clearTimeout(deadlineTimeout);
       try {
         const json = JSON.parse(responseBody);
-        process.stdout.write(JSON.stringify(json));
+        if (json.decision === 'allow' || json.decision === 'auto_approve') {
+          process.stdout.write(JSON.stringify({ decision: 'allow', reason: json.reason || 'Approved' }));
+        } else if (json.decision === 'deny') {
+          process.stdout.write(JSON.stringify({ decision: 'deny', reason: json.reason || 'Denied' }));
+        } else {
+          // Defer to normal user prompt on laptop screen
+          process.stdout.write(JSON.stringify({ decision: 'ask', reason: 'Prompting on laptop' }));
+        }
       } catch (err) {
-        process.stdout.write(JSON.stringify({ decision: 'allow' }));
+        process.stdout.write(JSON.stringify({ decision: 'ask', reason: 'Response parse error' }));
       }
       process.exit(0);
     });
@@ -54,8 +60,8 @@ function main() {
 
   req.on('error', (err) => {
     clearTimeout(deadlineTimeout);
-    // Desktop Agent not running: safe pass-through to local Antigravity prompt
-    process.stdout.write(JSON.stringify({ decision: 'allow', reason: 'Desktop agent not active' }));
+    // Desktop Agent not running: immediately prompt user on laptop screen
+    process.stdout.write(JSON.stringify({ decision: 'ask', reason: 'Desktop agent not active' }));
     process.exit(0);
   });
 

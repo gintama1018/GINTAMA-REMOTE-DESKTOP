@@ -158,6 +158,18 @@ wss.on('connection', (ws, req) => {
   // Notify peer of presence if online
   broadcastPresence(deviceId, 'online');
 
+  // Notify this newly connected device of currently connected peers
+  devices.forEach((info, peerId) => {
+    if (peerId !== deviceId && info.ws && info.ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        class: 'presence',
+        device: peerId,
+        status: 'online',
+        timestamp: Date.now()
+      }));
+    }
+  });
+
   // Deliver any queued messages for this device
   deliverQueue(deviceId, ws);
 
