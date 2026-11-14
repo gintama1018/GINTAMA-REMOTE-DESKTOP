@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,11 +26,19 @@ import org.json.JSONObject;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-public class MainActivity extends AppCompatActivity implements BridgeClient.BridgeEventListener {
+public class MainActivity extends AppCompatActivity
+        implements BridgeClient.BridgeEventListener, BridgeService.ServiceCallback {
 
     private WebView webView;
     private BridgeClient bridgeClient;
     private String currentHost = "gintama-remote-desktop.onrender.com";
+
+    private BridgeClient getActiveClient() {
+        if (BridgeService.getInstance() != null && BridgeService.getInstance().getBridgeClient() != null) {
+            return BridgeService.getInstance().getBridgeClient();
+        }
+        return bridgeClient;
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -39,17 +48,40 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
 
         requestNotificationPermission();
 
-        SharedPreferences prefs = getSharedPreferences("bridge_prefs", MODE_PRIVATE);
-        currentHost = prefs.getString("relay_host", "gintama-remote-desktop.onrender.com");
-
-        bridgeClient = new BridgeClient(this);
-        bridgeClient.setRelayHost(currentHost);
-        ApprovalActionReceiver.bridgeClientInstance = bridgeClient;
+        // Start 24/7 Persistent Background Service
+        Intent serviceIntent = new Intent(this, BridgeService.class);
+        ContextCompat.startForegroundService(this, serviceIntent);
 
         setupWebView();
-        bridgeClient.connect();
+
+        if (BridgeService.getInstance() != null) {
+            BridgeService.getInstance().setActivityCallback(this);
+            BridgeService.getInstance().setActivityVisible(true);
+            this.bridgeClient = BridgeService.getInstance().getBridgeClient();
+        }
 
         handleNotificationIntent(getIntent());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (BridgeService.getInstance() != null) {
+            BridgeService.getInstance().setActivityCallback(this);
+            BridgeService.getInstance().setActivityVisible(true);
+            this.bridgeClient = BridgeService.getInstance().getBridgeClient();
+            if (bridgeClient != null) {
+                onConnectionStateChanged(bridgeClient.isConnected());
+            }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (BridgeService.getInstance() != null) {
+            BridgeService.getInstance().setActivityVisible(false);
+        }
     }
 
     @Override
@@ -78,8 +110,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
 
     private void requestNotificationPermission() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            if (checkSelfPermission(
+                    android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[] { android.Manifest.permission.POST_NOTIFICATIONS }, 101);
             }
         }
     }
@@ -103,7 +136,8 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
     public void onConnectionStateChanged(boolean isConnected) {
         runOnUiThread(() -> {
             if (webView != null) {
-                webView.evaluateJavascript("if(window.onConnectionState) window.onConnectionState(" + isConnected + ");", null);
+                webView.evaluateJavascript(
+                        "if(window.onConnectionState) window.onConnectionState(" + isConnected + ");", null);
             }
         });
     }
@@ -119,9 +153,11 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                 json.put("cwd", item.cwd);
 
                 if (webView != null) {
-                    webView.evaluateJavascript("if(window.onApprovalRequest) window.onApprovalRequest(" + json.toString() + ");", null);
+                    webView.evaluateJavascript(
+                            "if(window.onApprovalRequest) window.onApprovalRequest(" + json.toString() + ");", null);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         });
 
         // Trigger native vibration & priority banner
@@ -148,9 +184,11 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                     array.put(obj);
                 }
                 if (webView != null) {
-                    webView.evaluateJavascript("if(window.onAppsList) window.onAppsList(" + array.toString() + ");", null);
+                    webView.evaluateJavascript("if(window.onAppsList) window.onAppsList(" + array.toString() + ");",
+                            null);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         });
     }
 
@@ -163,7 +201,8 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
     public void onSystemStatsData(JSONObject statsJson) {
         runOnUiThread(() -> {
             if (webView != null) {
-                webView.evaluateJavascript("if(window.onSystemStats) window.onSystemStats(" + statsJson.toString() + ");", null);
+                webView.evaluateJavascript(
+                        "if(window.onSystemStats) window.onSystemStats(" + statsJson.toString() + ");", null);
             }
         });
     }
@@ -173,14 +212,16 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         String base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
         runOnUiThread(() -> {
             if (webView != null) {
-                webView.evaluateJavascript("if(window.onScreenshot) window.onScreenshot('data:image/jpeg;base64," + base64 + "');", null);
+                webView.evaluateJavascript(
+                        "if(window.onScreenshot) window.onScreenshot('data:image/jpeg;base64," + base64 + "');", null);
             }
         });
     }
 
     @Override
     public void onClipboardReceived(String text) {
-        if (text == null || text.isEmpty()) return;
+        if (text == null || text.isEmpty())
+            return;
         runOnUiThread(() -> {
             try {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
@@ -192,9 +233,11 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                 Toast.makeText(MainActivity.this, "📋 Copied from PC: " + preview, Toast.LENGTH_SHORT).show();
 
                 if (webView != null) {
-                    webView.evaluateJavascript("if(window.onClipboardSync) window.onClipboardSync(" + JSONObject.quote(text) + ");", null);
+                    webView.evaluateJavascript(
+                            "if(window.onClipboardSync) window.onClipboardSync(" + JSONObject.quote(text) + ");", null);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         });
     }
 
@@ -225,9 +268,11 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                     @Override
                     public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
                         super.onAuthenticationSucceeded(result);
-                        Toast.makeText(MainActivity.this, "Biometric Verified! Unlocking PC...", Toast.LENGTH_SHORT).show();
-                        if (bridgeClient != null) {
-                            bridgeClient.unlockLaptop(pin);
+                        Toast.makeText(MainActivity.this, "Biometric Verified! Unlocking PC...", Toast.LENGTH_SHORT)
+                                .show();
+                        BridgeClient client = getActiveClient();
+                        if (client != null) {
+                            client.unlockLaptop(pin);
                         }
                         if (webView != null) {
                             webView.evaluateJavascript("if(window.onUnlockSuccess) window.onUnlockSuccess();", null);
@@ -269,8 +314,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void lockLaptop() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.lockLaptop();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.lockLaptop();
                 }
                 Toast.makeText(MainActivity.this, "Lock signal sent to PC", Toast.LENGTH_SHORT).show();
             });
@@ -279,8 +325,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void sleepDisplay() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.sleepDisplay();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.sleepDisplay();
                 }
                 Toast.makeText(MainActivity.this, "Display sleep signal sent", Toast.LENGTH_SHORT).show();
             });
@@ -289,8 +336,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void wakeDisplay() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.wakeDisplay();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.wakeDisplay();
                 }
                 Toast.makeText(MainActivity.this, "Display wake signal sent", Toast.LENGTH_SHORT).show();
             });
@@ -299,8 +347,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void toggleMute() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.toggleMute();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.toggleMute();
                 }
                 Toast.makeText(MainActivity.this, "Mute toggle sent to PC", Toast.LENGTH_SHORT).show();
             });
@@ -309,8 +358,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void adjustVolume(boolean isUp) {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.adjustVolume(isUp);
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.adjustVolume(isUp);
                 }
             });
         }
@@ -318,8 +368,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void setVolume(int percent) {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.setVolume(percent);
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.setVolume(percent);
                 }
             });
         }
@@ -327,8 +378,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void captureScreenshot() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.captureScreenshot();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.captureScreenshot();
                 }
             });
         }
@@ -336,8 +388,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void fetchRunningApps() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.fetchRunningApps();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.fetchRunningApps();
                 }
             });
         }
@@ -345,8 +398,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void closeApp(int pid, boolean force) {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.closeApp(pid, force);
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.closeApp(pid, force);
                 }
                 Toast.makeText(MainActivity.this, "Terminating PID " + pid, Toast.LENGTH_SHORT).show();
             });
@@ -355,8 +409,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void fetchSystemStats() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.fetchSystemStats();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.fetchSystemStats();
                 }
             });
         }
@@ -371,7 +426,8 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                         clipboard.setPrimaryClip(clip);
                         Toast.makeText(MainActivity.this, "Copied to clipboard!", Toast.LENGTH_SHORT).show();
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             });
         }
 
@@ -381,12 +437,14 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                 Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
                 if (v != null && v.hasVibrator()) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        v.vibrate(VibrationEffect.createOneShot(Math.min(durationMs, 400), VibrationEffect.DEFAULT_AMPLITUDE));
+                        v.vibrate(VibrationEffect.createOneShot(Math.min(durationMs, 400),
+                                VibrationEffect.DEFAULT_AMPLITUDE));
                     } else {
                         v.vibrate(Math.min(durationMs, 400));
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         @JavascriptInterface
@@ -399,8 +457,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void unlockLaptopDirect(String pin) {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.unlockLaptop(pin);
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.unlockLaptop(pin);
                 }
                 Toast.makeText(MainActivity.this, "Unlock signal sent to PC", Toast.LENGTH_SHORT).show();
             });
@@ -423,8 +482,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void sendClipboardToLaptop(String text) {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.setLaptopClipboard(text);
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.setLaptopClipboard(text);
                 }
                 Toast.makeText(MainActivity.this, "Sent to PC Clipboard", Toast.LENGTH_SHORT).show();
             });
@@ -433,8 +493,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void pasteToLaptop(String text) {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.pasteToLaptop(text);
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.pasteToLaptop(text);
                 }
                 Toast.makeText(MainActivity.this, "Pasted on PC Active Window", Toast.LENGTH_SHORT).show();
             });
@@ -443,8 +504,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void fetchLaptopClipboard() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.fetchLaptopClipboard();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.fetchLaptopClipboard();
                 }
             });
         }
@@ -452,8 +514,9 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         @JavascriptInterface
         public void peekScreen() {
             runOnUiThread(() -> {
-                if (bridgeClient != null) {
-                    bridgeClient.peekScreen();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.peekScreen();
                 }
             });
         }
@@ -463,12 +526,15 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
             runOnUiThread(() -> {
                 try {
                     String clean = base64Data != null ? base64Data : "";
-                    if (clean.contains(",")) clean = clean.substring(clean.indexOf(",") + 1);
+                    if (clean.contains(","))
+                        clean = clean.substring(clean.indexOf(",") + 1);
                     byte[] bytes = Base64.decode(clean, Base64.DEFAULT);
-                    android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                    android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0,
+                            bytes.length);
                     if (bmp != null) {
                         String title = "BridgeScreenshot_" + System.currentTimeMillis();
-                        android.provider.MediaStore.Images.Media.insertImage(getContentResolver(), bmp, title, "Captured via Bridge Remote");
+                        android.provider.MediaStore.Images.Media.insertImage(getContentResolver(), bmp, title,
+                                "Captured via Bridge Remote");
                         Toast.makeText(MainActivity.this, "📸 Screenshot saved to Gallery!", Toast.LENGTH_SHORT).show();
                     }
                 } catch (Exception e) {
@@ -485,7 +551,8 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                     CharSequence text = clipboard.getPrimaryClip().getItemAt(0).getText();
                     return text != null ? text.toString() : "";
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
             return "";
         }
 
@@ -497,9 +564,10 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
                         .putString("relay_host", host)
                         .apply();
 
-                if (bridgeClient != null) {
-                    bridgeClient.setRelayHost(host);
-                    bridgeClient.connect();
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.setRelayHost(host);
+                    client.connect();
                 }
                 Toast.makeText(MainActivity.this, "Connecting to: " + host, Toast.LENGTH_SHORT).show();
             });
