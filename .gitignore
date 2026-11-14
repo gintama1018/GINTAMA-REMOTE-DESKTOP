@@ -6,4 +6,5 @@ build/
 *.tmp
 ui_design/
 *.zip
+desktop/bridge_tools.exe
 

@@ -63,6 +63,8 @@ let isRelayConnected = false;
 let isPhoneConnected = false;
 const pendingRequests = new Map(); // rid -> { resolve, deadline, toolCall }
 let seqCounter = 0;
+let lastSeenClipboard = '';
+let isUpdatingClipboardFromPhone = false;
 
 // ==========================================
 // 1. Local IPC Server for Antigravity Hook
@@ -330,7 +332,21 @@ async function handleIncomingEnvelope(envelope) {
       } else if (action === 'system_stats') {
         result = await systemController.getSystemStats();
       } else if (action === 'screenshot') {
-        result = await systemController.takeScreenshot();
+        result = await systemController.takeScreenshot(args.maxWidth || 1024, args.quality || 65);
+      } else if (action === 'peek') {
+        result = await systemController.takeScreenshot(args.maxWidth || 720, args.quality || 45);
+      } else if (action === 'get_clipboard') {
+        result = await systemController.getClipboard();
+      } else if (action === 'set_clipboard') {
+        isUpdatingClipboardFromPhone = true;
+        lastSeenClipboard = args.text || '';
+        result = await systemController.setClipboard(args.text);
+        setTimeout(() => { isUpdatingClipboardFromPhone = false; }, 2500);
+      } else if (action === 'paste_to_pc') {
+        isUpdatingClipboardFromPhone = true;
+        lastSeenClipboard = args.text || '';
+        result = await systemController.pasteClipboard(args.text);
+        setTimeout(() => { isUpdatingClipboardFromPhone = false; }, 2500);
       } else if (action === 'unlock') {
         result = await systemController.unlockWorkstation(args.pin);
       }
@@ -389,7 +405,48 @@ process.on('uncaughtException', (err) => {
   console.error('[Agent] ⚠️ Caught Uncaught Exception:', err.message);
 });
 
-// Start Agent & Keep-Alive
+// ==========================================
+// 5. Universal Bi-directional Clipboard Sync Watcher
+// ==========================================
+function startClipboardSyncWatcher() {
+  console.log(`[Agent] 📋 Bi-directional Clipboard Sync Watcher active`);
+
+  setInterval(async () => {
+    if (!isRelayConnected || !relayWs || isUpdatingClipboardFromPhone) return;
+    try {
+      const clip = await systemController.getClipboard();
+      if (clip.ok && clip.text && clip.text !== lastSeenClipboard) {
+        lastSeenClipboard = clip.text;
+        // Don't send huge binary data (> 100KB)
+        if (clip.text.length <= 100000) {
+          seqCounter++;
+          relayWs.send(JSON.stringify({
+            v: 1,
+            msg_id: 'clip_' + crypto.randomUUID().substring(0, 8),
+            from: CONFIG.deviceId,
+            to: CONFIG.peerPhoneId,
+            seq: seqCounter,
+            class: 'interactive',
+            ttl_s: 60,
+            payload: {
+              t: 'clipboard.sync',
+              rid: 'clip_' + Date.now(),
+              body: {
+                text: clip.text,
+                source: 'desktop',
+                timestamp: Date.now()
+              }
+            }
+          }));
+          console.log(`[Agent] 📋 Auto-synced clipboard from PC to phone (${clip.text.length} chars)`);
+        }
+      }
+    } catch {}
+  }, 1200);
+}
+
+// Start Agent, Keep-Alive & Clipboard Sync
 connectToRelay();
 startKeepAlivePing();
+startClipboardSyncWatcher();
 

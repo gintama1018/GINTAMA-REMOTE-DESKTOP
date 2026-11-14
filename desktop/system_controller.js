@@ -1,8 +1,10 @@
-const { exec, execSync } = require('child_process');
+const { exec, execSync, spawn } = require('child_process');
 const os = require('os');
 const path = require('path');
+const fs = require('fs');
 
 const VOL_BIN = `"${path.join(__dirname, 'volume_control.exe')}"`;
+const NATIVE_BIN = path.join(__dirname, 'bridge_native.exe');
 
 /**
  * Windows Native System Controller
@@ -128,44 +130,119 @@ function getSystemStats() {
   });
 }
 
-// 5. Remote Screen Snapshot
-function takeScreenshot() {
-  return new Promise((resolve, reject) => {
-    const psScript = `
-      Add-Type -AssemblyName System.Windows.Forms;
-      Add-Type -AssemblyName System.Drawing;
-      $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
-      $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height;
-      $graphics = [System.Drawing.Graphics]::FromImage($bmp);
-      $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size);
-      
-      $scale = [Math]::Min(1.0, 1280.0 / $bounds.Width);
-      $newW = [int]($bounds.Width * $scale);
-      $newH = [int]($bounds.Height * $scale);
-      $resized = New-Object System.Drawing.Bitmap $newW, $newH;
-      $rg = [System.Drawing.Graphics]::FromImage($resized);
-      $rg.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::Bilinear;
-      $rg.DrawImage($bmp, 0, 0, $newW, $newH);
+// 5. Remote Screen Snapshot (Ultra-fast native C# binary with fallback)
+function takeScreenshot(maxWidth = 1024, quality = 65) {
+  return new Promise((resolve) => {
+    if (fs.existsSync(NATIVE_BIN)) {
+      const child = spawn(NATIVE_BIN, ['screenshot', String(maxWidth), String(quality)]);
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', d => stdout += d.toString());
+      child.stderr.on('data', d => stderr += d.toString());
+      child.on('close', (code) => {
+        const b64 = stdout.trim();
+        if (code === 0 && b64.length > 50) {
+          return resolve({ ok: true, imageBase64: b64, timestamp: Date.now() });
+        }
+        // Fallback to powershell if native exited with non-zero
+        fallbackPowershellScreenshot(resolve);
+      });
+      child.on('error', () => fallbackPowershellScreenshot(resolve));
+    } else {
+      fallbackPowershellScreenshot(resolve);
+    }
+  });
+}
 
-      $ms = New-Object System.IO.MemoryStream;
-      $resized.Save($ms, [System.Drawing.Imaging.ImageFormat]::Jpeg);
-      $b64 = [Convert]::ToBase64String($ms.ToArray());
-      
-      $rg.Dispose();
-      $resized.Dispose();
-      $graphics.Dispose();
-      $bmp.Dispose();
-      $ms.Dispose();
-      Write-Output $b64;
-    `;
+function fallbackPowershellScreenshot(resolve) {
+  const psScript = `
+    Add-Type -AssemblyName System.Windows.Forms;
+    Add-Type -AssemblyName System.Drawing;
+    $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds;
+    $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height;
+    $graphics = [System.Drawing.Graphics]::FromImage($bmp);
+    $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size);
+    $scale = [Math]::Min(1.0, 1024.0 / $bounds.Width);
+    $newW = [int]($bounds.Width * $scale);
+    $newH = [int]($bounds.Height * $scale);
+    $resized = New-Object System.Drawing.Bitmap $newW, $newH;
+    $rg = [System.Drawing.Graphics]::FromImage($resized);
+    $rg.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::Bilinear;
+    $rg.DrawImage($bmp, 0, 0, $newW, $newH);
+    $ms = New-Object System.IO.MemoryStream;
+    $resized.Save($ms, [System.Drawing.Imaging.ImageFormat]::Jpeg);
+    $b64 = [Convert]::ToBase64String($ms.ToArray());
+    $rg.Dispose(); $resized.Dispose(); $graphics.Dispose(); $bmp.Dispose(); $ms.Dispose();
+    Write-Output $b64;
+  `;
+  exec(`powershell -NoProfile -Command "${psScript.replace(/\r?\n/g, ' ')}"`, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout) => {
+    if (error || !stdout.trim()) {
+      return resolve({ ok: false, error: error ? error.message : 'Screenshot failed' });
+    }
+    resolve({ ok: true, imageBase64: stdout.trim(), timestamp: Date.now() });
+  });
+}
 
-    exec(`powershell -NoProfile -Command "${psScript.replace(/\r?\n/g, ' ')}"`, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout) => {
-      if (error) {
-        return reject({ ok: false, error: error.message });
-      }
-      const b64 = stdout.trim();
-      resolve({ ok: true, imageBase64: b64, timestamp: Date.now() });
-    });
+// 5b. Get PC Clipboard
+function getClipboard() {
+  return new Promise((resolve) => {
+    if (fs.existsSync(NATIVE_BIN)) {
+      exec(`"${NATIVE_BIN}" get-clipboard`, { maxBuffer: 5 * 1024 * 1024 }, (error, stdout) => {
+        if (!error) {
+          return resolve({ ok: true, text: stdout });
+        }
+        fallbackGetClipboard(resolve);
+      });
+    } else {
+      fallbackGetClipboard(resolve);
+    }
+  });
+}
+
+function fallbackGetClipboard(resolve) {
+  exec('powershell -NoProfile -Command "Get-Clipboard"', (error, stdout) => {
+    resolve({ ok: !error, text: stdout || '' });
+  });
+}
+
+// 5c. Set PC Clipboard
+function setClipboard(text) {
+  return new Promise((resolve) => {
+    if (fs.existsSync(NATIVE_BIN)) {
+      const child = spawn(NATIVE_BIN, ['set-clipboard']);
+      child.stdin.write(text || '');
+      child.stdin.end();
+      child.on('close', (code) => {
+        resolve({ ok: code === 0, message: code === 0 ? 'Clipboard updated on PC' : 'Clipboard set failed' });
+      });
+      child.on('error', (err) => {
+        resolve({ ok: false, error: err.message });
+      });
+    } else {
+      const safeText = (text || '').replace(/"/g, '`"');
+      exec(`powershell -NoProfile -Command "Set-Clipboard -Value '${safeText}'"`, (error) => {
+        resolve({ ok: !error, message: error ? error.message : 'Clipboard updated on PC' });
+      });
+    }
+  });
+}
+
+// 5d. Paste Clipboard on PC Active Window
+function pasteClipboard(text) {
+  return new Promise(async (resolve) => {
+    if (text) {
+      await setClipboard(text);
+      await new Promise(r => setTimeout(r, 60));
+    }
+    if (fs.existsSync(NATIVE_BIN)) {
+      exec(`"${NATIVE_BIN}" paste-clipboard`, (error) => {
+        resolve({ ok: !error, message: error ? error.message : 'Pasted on PC active window' });
+      });
+    } else {
+      exec(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"`, (error) => {
+        resolve({ ok: !error, message: error ? error.message : 'Pasted on PC active window' });
+      });
+    }
   });
 }
 
@@ -251,6 +328,9 @@ module.exports = {
   closeApp,
   getSystemStats,
   takeScreenshot,
+  getClipboard,
+  setClipboard,
+  pasteClipboard,
   sleepDisplay,
   wakeDisplay,
   toggleMute,

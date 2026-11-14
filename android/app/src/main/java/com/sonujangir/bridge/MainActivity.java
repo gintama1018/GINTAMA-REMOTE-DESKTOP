@@ -179,6 +179,26 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
     }
 
     @Override
+    public void onClipboardReceived(String text) {
+        if (text == null || text.isEmpty()) return;
+        runOnUiThread(() -> {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    ClipData clip = ClipData.newPlainText("PC Clipboard", text);
+                    clipboard.setPrimaryClip(clip);
+                }
+                String preview = text.length() > 35 ? text.substring(0, 35) + "..." : text;
+                Toast.makeText(MainActivity.this, "📋 Copied from PC: " + preview, Toast.LENGTH_SHORT).show();
+
+                if (webView != null) {
+                    webView.evaluateJavascript("if(window.onClipboardSync) window.onClipboardSync(" + JSONObject.quote(text) + ");", null);
+                }
+            } catch (Exception ignored) {}
+        });
+    }
+
+    @Override
     public void onActionSuccess(String message) {
         runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_SHORT).show());
     }
@@ -398,6 +418,75 @@ public class MainActivity extends AppCompatActivity implements BridgeClient.Brid
         public String getSavedPin() {
             return getSharedPreferences("bridge_prefs", MODE_PRIVATE)
                     .getString("saved_pin", "");
+        }
+
+        @JavascriptInterface
+        public void sendClipboardToLaptop(String text) {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.setLaptopClipboard(text);
+                }
+                Toast.makeText(MainActivity.this, "Sent to PC Clipboard", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void pasteToLaptop(String text) {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.pasteToLaptop(text);
+                }
+                Toast.makeText(MainActivity.this, "Pasted on PC Active Window", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void fetchLaptopClipboard() {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.fetchLaptopClipboard();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void peekScreen() {
+            runOnUiThread(() -> {
+                if (bridgeClient != null) {
+                    bridgeClient.peekScreen();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void saveScreenshotToGallery(String base64Data) {
+            runOnUiThread(() -> {
+                try {
+                    String clean = base64Data != null ? base64Data : "";
+                    if (clean.contains(",")) clean = clean.substring(clean.indexOf(",") + 1);
+                    byte[] bytes = Base64.decode(clean, Base64.DEFAULT);
+                    android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                    if (bmp != null) {
+                        String title = "BridgeScreenshot_" + System.currentTimeMillis();
+                        android.provider.MediaStore.Images.Media.insertImage(getContentResolver(), bmp, title, "Captured via Bridge Remote");
+                        Toast.makeText(MainActivity.this, "📸 Screenshot saved to Gallery!", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Failed to save: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public String getPhoneClipboard() {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null && clipboard.hasPrimaryClip() && clipboard.getPrimaryClip().getItemCount() > 0) {
+                    CharSequence text = clipboard.getPrimaryClip().getItemAt(0).getText();
+                    return text != null ? text.toString() : "";
+                }
+            } catch (Exception ignored) {}
+            return "";
         }
 
         @JavascriptInterface

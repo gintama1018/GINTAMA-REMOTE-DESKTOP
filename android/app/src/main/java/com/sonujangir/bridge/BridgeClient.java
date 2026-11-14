@@ -27,6 +27,7 @@ public class BridgeClient {
         void onSystemStatsReceived(String statsText);
         void onSystemStatsData(JSONObject statsJson);
         void onScreenshotReceived(byte[] imageBytes);
+        void onClipboardReceived(String text);
         void onActionSuccess(String message);
     }
 
@@ -154,9 +155,19 @@ public class BridgeClient {
                 mainHandler.post(() -> listener.onApprovalRequest(item));
             } else if ("approval.expired".equals(type)) {
                 mainHandler.post(() -> listener.onApprovalExpired(rid));
+            } else if ("clipboard.sync".equals(type)) {
+                JSONObject body = payload.optJSONObject("body");
+                if (body != null && body.has("text")) {
+                    String clipText = body.getString("text");
+                    mainHandler.post(() -> listener.onClipboardReceived(clipText));
+                }
             } else if ("action.result".equals(type)) {
                 JSONObject body = payload.optJSONObject("body");
                 if (body != null) {
+                    if (body.has("text") && !body.has("stats")) {
+                        String clipText = body.getString("text");
+                        mainHandler.post(() -> listener.onClipboardReceived(clipText));
+                    }
                     if (body.has("apps")) {
                         JSONArray appsArr = body.getJSONArray("apps");
                         List<AppItem> list = new ArrayList<>();
@@ -264,6 +275,35 @@ public class BridgeClient {
 
     public void captureScreenshot() {
         requestAction("screenshot", new JSONObject());
+    }
+
+    public void peekScreen() {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("maxWidth", 720);
+            args.put("quality", 45);
+            requestAction("peek", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void setLaptopClipboard(String text) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("text", text != null ? text : "");
+            requestAction("set_clipboard", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void pasteToLaptop(String text) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("text", text != null ? text : "");
+            requestAction("paste_to_pc", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void fetchLaptopClipboard() {
+        requestAction("get_clipboard", new JSONObject());
     }
 
     public void lockLaptop() {
