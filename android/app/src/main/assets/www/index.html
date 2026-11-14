@@ -1859,15 +1859,41 @@
       const dot = document.getElementById('status-dot');
       const text = document.getElementById('status-text');
       if (connected) {
-        dot.className = 'w-2 h-2 rounded-full bg-primary animate-pulse';
-        text.textContent = 'Bridge · Online';
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-primary animate-pulse';
+        if (text) text.textContent = 'Bridge · Online';
         refreshSystemStats();
         fetchActiveApps();
       } else {
-        dot.className = 'w-2 h-2 rounded-full bg-error';
-        text.textContent = 'Bridge · Offline';
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-error';
+        if (text) text.textContent = 'Bridge · Offline';
       }
     };
+
+    function syncConnectionState() {
+      if (window.Android && typeof window.Android.isConnected === 'function') {
+        const isConn = window.Android.isConnected();
+        window.onConnectionState(isConn);
+      }
+    }
+
+    // Tap status pill to manually force reconnect
+    const pill = document.getElementById('header-status-pill');
+    if (pill) {
+      pill.style.cursor = 'pointer';
+      pill.onclick = function() {
+        if (window.Android && window.Android.reconnect) {
+          window.Android.reconnect();
+        }
+        setTimeout(syncConnectionState, 500);
+      };
+    }
+
+    window.addEventListener('load', () => {
+      setTimeout(syncConnectionState, 300);
+      setTimeout(syncConnectionState, 1200);
+      setTimeout(syncConnectionState, 2500);
+    });
+    setInterval(syncConnectionState, 4000);
   </script>
 </body>
 </html>

@@ -344,10 +344,17 @@ function connectToRelay() {
   try {
     const ws = new WebSocket(wsUrl);
 
+    let pingInterval = null;
     ws.onopen = () => {
       console.log(`[Agent] ✅ Connected to Cloud Relay as ${CONFIG.deviceId}`);
       relayWs = ws;
       isRelayConnected = true;
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try { ws.ping(); } catch {}
+        }
+      }, 20000);
     };
 
     ws.onmessage = (event) => {
@@ -360,6 +367,7 @@ function connectToRelay() {
     };
 
     ws.onclose = () => {
+      if (pingInterval) clearInterval(pingInterval);
       console.log(`[Agent] Relay connection closed. Reconnecting in 3s...`);
       isRelayConnected = false;
       relayWs = null;

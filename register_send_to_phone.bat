@@ -44,3 +44,4 @@ echo  2. Right-click ANY file in File Explorer and click "Send to POCO M6 Pro 5G
 echo  3. Right-click ANY file -^> Send to -^> "POCO M6 Pro 5G".
 echo ========================================================
 pause
+

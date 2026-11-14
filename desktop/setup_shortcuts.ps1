@@ -18,3 +18,4 @@ $s2.Description = 'Drag and drop files to send to POCO M6 Pro 5G'
 $s2.Save()
 
 Write-Output "Shortcuts created successfully."
+

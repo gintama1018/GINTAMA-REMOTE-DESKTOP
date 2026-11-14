@@ -120,7 +120,16 @@ public class MainActivity extends AppCompatActivity
         settings.setAllowContentAccess(true);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                BridgeClient client = getActiveClient();
+                boolean connected = (client != null && client.isConnected());
+                Log.d("MainActivity", "onPageFinished: pushing isConnected=" + connected);
+                webView.evaluateJavascript("if(window.onConnectionState) window.onConnectionState(" + connected + ");", null);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new AndroidBridge(), "Android");
 
@@ -693,6 +702,23 @@ public class MainActivity extends AppCompatActivity
                     client.downloadPcFile(filename);
                 }
                 Toast.makeText(MainActivity.this, "Downloading " + filename + " from PC...", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public boolean isConnected() {
+            BridgeClient client = getActiveClient();
+            return client != null && client.isConnected();
+        }
+
+        @JavascriptInterface
+        public void reconnect() {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.connect();
+                }
+                Toast.makeText(MainActivity.this, "Reconnecting to Relay...", Toast.LENGTH_SHORT).show();
             });
         }
 
