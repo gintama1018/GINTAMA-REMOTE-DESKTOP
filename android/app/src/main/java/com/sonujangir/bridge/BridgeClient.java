@@ -32,6 +32,9 @@ public class BridgeClient {
         void onPcFilesListReceived(JSONArray files);
         void onFileDownloadedFromPc(String filename, byte[] fileBytes);
         void onActionSuccess(String message);
+        void onSentryAlert(JSONObject alertData);
+        void onCamPeekReceived(byte[] imageBytes);
+        void onSentryStateChanged(boolean armed, String message);
     }
 
     private final String deviceId = "dev_phone_01";
@@ -171,6 +174,11 @@ public class BridgeClient {
                     byte[] bytes = android.util.Base64.decode(body.getString("fileBase64"), android.util.Base64.DEFAULT);
                     mainHandler.post(() -> listener.onFileDownloadedFromPc(name, bytes));
                 }
+            } else if ("sentry.alert".equals(type)) {
+                JSONObject body = payload.optJSONObject("body");
+                if (body != null) {
+                    mainHandler.post(() -> listener.onSentryAlert(body));
+                }
             } else if ("action.result".equals(type)) {
                 JSONObject body = payload.optJSONObject("body");
                 if (body != null) {
@@ -232,6 +240,14 @@ public class BridgeClient {
                     } else if (body.has("message")) {
                         String msg = body.getString("message");
                         mainHandler.post(() -> listener.onActionSuccess(msg));
+                    } else if (body.has("camBase64")) {
+                        String b64 = body.getString("camBase64");
+                        byte[] imageBytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                        mainHandler.post(() -> listener.onCamPeekReceived(imageBytes));
+                    } else if (body.has("armed")) {
+                        boolean armed = body.optBoolean("armed", false);
+                        String msg = body.optString("message", armed ? "Sentry Armed" : "Sentry Disarmed");
+                        mainHandler.post(() -> listener.onSentryStateChanged(armed, msg));
                     }
                 }
             }
@@ -403,6 +419,26 @@ public class BridgeClient {
             args.put("name", filename);
             requestAction("get_pc_file", args);
         } catch (Exception ignored) {}
+    }
+
+    public void requestCamPeek() {
+        requestAction("sentry_peek", new JSONObject());
+    }
+
+    public void startSentry(int threshold) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("threshold", threshold);
+            requestAction("sentry_start", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void stopSentry() {
+        requestAction("sentry_stop", new JSONObject());
+    }
+
+    public void checkSentryStatus() {
+        requestAction("sentry_status", new JSONObject());
     }
 }
 

@@ -479,6 +479,14 @@ async function handleIncomingEnvelope(envelope) {
         result = await systemController.listPcFiles();
       } else if (action === 'get_pc_file') {
         result = await systemController.getPcFile(args.name);
+      } else if (action === 'sentry_peek') {
+        result = await systemController.getStealthCamPeek();
+      } else if (action === 'sentry_start') {
+        result = systemController.startSentryGuard(args.threshold);
+      } else if (action === 'sentry_stop') {
+        result = systemController.stopSentryGuard();
+      } else if (action === 'sentry_status') {
+        result = { ok: true, armed: systemController.isSentryArmed() };
       }
     } catch (err) {
       result = { ok: false, error: err.message || String(err) };
@@ -574,6 +582,28 @@ function startClipboardSyncWatcher() {
     } catch {}
   }, 1200);
 }
+
+// Wire Sentry Intruder Alert to Relay
+systemController.setSentryAlertCallback((alertData) => {
+  if (isRelayConnected && relayWs) {
+    seqCounter++;
+    relayWs.send(JSON.stringify({
+      v: 1,
+      msg_id: 'sentry_alert_' + crypto.randomUUID().substring(0, 8),
+      from: CONFIG.deviceId,
+      to: CONFIG.peerPhoneId,
+      seq: seqCounter,
+      class: 'interactive',
+      ttl_s: 120,
+      payload: {
+        t: 'sentry.alert',
+        rid: 'sentry_' + Date.now(),
+        body: alertData
+      }
+    }));
+    console.log(`[Agent] 🚨 TRESPASSING DETECTED! Sent Sentry Alert with intruder photo to ${CONFIG.peerPhoneId}`);
+  }
+});
 
 // Start Agent, Keep-Alive & Clipboard Sync
 connectToRelay();

@@ -199,5 +199,81 @@ public class NotificationHelper {
             manager.notify(filename.hashCode(), builder.build());
         }
     }
+
+    public static final String SENTRY_CHANNEL_ID = "bridge_sentry_alerts";
+    private static final String SENTRY_CHANNEL_NAME = "Bridge Sentry Intruder Alerts";
+
+    public static void createSentryNotificationChannel(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    SENTRY_CHANNEL_ID,
+                    SENTRY_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Critical alerts when someone approaches your laptop");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 500, 200, 500, 200, 800});
+            channel.enableLights(true);
+
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    public static void showSentryAlertNotification(Context context, org.json.JSONObject alertData) {
+        createSentryNotificationChannel(context);
+
+        String title = "🚨 TRESPASSING DETECTED!";
+        String text = "Person detected near your laptop! Laptop was auto-locked.";
+        String imageBase64 = alertData != null ? alertData.optString("imageBase64", "") : "";
+
+        android.graphics.Bitmap intruderBmp = null;
+        if (!imageBase64.isEmpty()) {
+            try {
+                byte[] bytes = android.util.Base64.decode(imageBase64, android.util.Base64.DEFAULT);
+                intruderBmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            } catch (Exception ignored) {}
+        }
+
+        Intent openIntent = new Intent(context, MainActivity.class);
+        openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        openIntent.putExtra("sentry_alert", true);
+        if (alertData != null) {
+            openIntent.putExtra("sentry_data", alertData.toString());
+        }
+
+        PendingIntent pi = PendingIntent.getActivity(
+                context,
+                9999,
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, SENTRY_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
+
+        if (intruderBmp != null) {
+            builder.setStyle(new NotificationCompat.BigPictureStyle()
+                    .bigPicture(intruderBmp)
+                    .setBigContentTitle("🚨 INTRUDER DETECTED NEAR LAPTOP")
+                    .setSummaryText("Laptop was auto-locked to protect your data."));
+            builder.setLargeIcon(intruderBmp);
+        } else {
+            builder.setStyle(new NotificationCompat.BigTextStyle().bigText(text));
+        }
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(9999, builder.build());
+        }
+    }
 }
 

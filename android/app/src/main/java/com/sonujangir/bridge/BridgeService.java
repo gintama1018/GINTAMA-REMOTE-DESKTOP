@@ -55,6 +55,9 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
         void onPcFilesListReceived(JSONArray files);
         void onFileDownloadedFromPc(String filename, byte[] fileBytes);
         void onActionSuccess(String message);
+        void onSentryAlert(JSONObject alertData);
+        void onCamPeekReceived(byte[] imageBytes);
+        void onSentryStateChanged(boolean armed, String message);
     }
 
     private ServiceCallback activityCallback;
@@ -392,6 +395,39 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
     public void onActionSuccess(String message) {
         if (activityCallback != null) {
             activityCallback.onActionSuccess(message);
+        }
+    }
+
+    @Override
+    public void onSentryAlert(JSONObject alertData) {
+        try {
+            android.os.Vibrator v = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(android.os.VibrationEffect.createWaveform(new long[]{0, 500, 200, 500, 200, 800}, -1));
+                } else {
+                    v.vibrate(new long[]{0, 500, 200, 500, 200, 800}, -1);
+                }
+            }
+            NotificationHelper.showSentryAlertNotification(this, alertData);
+        } catch (Throwable ignored) {}
+
+        if (activityCallback != null) {
+            activityCallback.onSentryAlert(alertData);
+        }
+    }
+
+    @Override
+    public void onCamPeekReceived(byte[] imageBytes) {
+        if (activityCallback != null) {
+            activityCallback.onCamPeekReceived(imageBytes);
+        }
+    }
+
+    @Override
+    public void onSentryStateChanged(boolean armed, String message) {
+        if (activityCallback != null) {
+            activityCallback.onSentryStateChanged(armed, message);
         }
     }
 

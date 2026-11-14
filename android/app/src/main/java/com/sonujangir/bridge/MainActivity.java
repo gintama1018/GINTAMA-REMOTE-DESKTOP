@@ -304,6 +304,35 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
+    public void onSentryAlert(JSONObject alertData) {
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onSentryAlert) window.onSentryAlert(" + alertData.toString() + ");", null);
+            }
+        });
+    }
+
+    @Override
+    public void onCamPeekReceived(byte[] imageBytes) {
+        String base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onCamPeek) window.onCamPeek('data:image/jpeg;base64," + base64 + "');", null);
+            }
+        });
+    }
+
+    @Override
+    public void onSentryStateChanged(boolean armed, String message) {
+        runOnUiThread(() -> {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onSentryState) window.onSentryState(" + armed + ", " + JSONObject.quote(message) + ");", null);
+            }
+        });
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 2001 && resultCode == RESULT_OK && data != null && data.getData() != null) {
@@ -719,6 +748,48 @@ public class MainActivity extends AppCompatActivity
                     client.connect();
                 }
                 Toast.makeText(MainActivity.this, "Reconnecting to Relay...", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void requestCamPeek() {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.requestCamPeek();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void startSentry(int threshold) {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.startSentry(threshold);
+                }
+                Toast.makeText(MainActivity.this, "🛡️ Arming Sentry Guard...", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void stopSentry() {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.stopSentry();
+                }
+                Toast.makeText(MainActivity.this, "🛡️ Disarming Sentry Guard...", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        @JavascriptInterface
+        public void checkSentryStatus() {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.checkSentryStatus();
+                }
             });
         }
 

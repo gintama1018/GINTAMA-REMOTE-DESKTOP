@@ -376,6 +376,74 @@
       </div>
     </div>
 
+    <!-- Stealth Cam Viewfinder Lightbox Modal -->
+    <div id="cam-peek-lightbox" class="fixed inset-0 z-50 bg-[#121216]/95 backdrop-blur-md hidden flex-col items-center justify-between p-4">
+      <div class="w-full flex items-center justify-between max-w-lg pt-2 pb-2">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+          <span class="font-headline text-sm font-semibold text-white">Stealth Cam • Live Feed</span>
+          <span class="text-[10px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full font-mono">Headless</span>
+        </div>
+        <button onclick="closeStealthCamView()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+
+      <div class="flex-1 w-full max-w-3xl flex items-center justify-center overflow-hidden my-2 relative">
+        <div id="cam-spinner" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70 text-xs">
+          <span class="material-symbols-outlined text-3xl animate-spin text-primary">progress_activity</span>
+          <span>Connecting stealth camera feed...</span>
+        </div>
+        <img id="cam-peek-img" src="" alt="Live Stealth Feed" class="max-w-full max-h-[72vh] object-contain rounded-xl shadow-2xl border border-white/15 hidden"/>
+      </div>
+
+      <div class="w-full max-w-md flex items-center justify-center gap-3 pb-4">
+        <button onclick="toggleCamLiveStream()" id="cam-stream-btn" class="flex-1 py-3 px-4 bg-white/15 hover:bg-white/25 text-white rounded-full font-label text-xs font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[16px]">videocam</span>
+          <span id="cam-stream-label">Auto-Refresh (1.5s)</span>
+        </button>
+        <button onclick="requestSingleCamFrame()" class="py-3 px-5 bg-primary text-on-primary rounded-full font-label text-xs font-semibold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[16px]">sync</span>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sentry Intruder Emergency Alarm Modal -->
+    <div id="sentry-alert-modal" class="fixed inset-0 z-50 bg-red-950/90 backdrop-blur-md hidden flex-col items-center justify-center p-5">
+      <div class="w-full max-w-md bg-[#1a0c0c] border-2 border-red-500/80 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-red-500/20 border border-red-500 flex items-center justify-center text-red-400">
+          <span class="material-symbols-outlined text-3xl animate-pulse">crisis_alert</span>
+        </div>
+
+        <div>
+          <span class="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold tracking-widest uppercase border border-red-500/30">Security Breach</span>
+          <h2 class="font-headline text-2xl text-white font-bold mt-1">TRESPASSING DETECTED!</h2>
+          <p class="text-xs text-white/70 mt-1 max-w-xs" id="sentry-alert-desc">A person approached within close range of your laptop. The laptop was locked automatically.</p>
+        </div>
+
+        <!-- Intruder Photo Proof -->
+        <div class="w-full max-h-56 rounded-2xl overflow-hidden border border-red-500/40 bg-black/50 shadow-inner flex items-center justify-center">
+          <img id="sentry-intruder-img" src="" alt="Intruder Snapshot" class="w-full h-full object-contain"/>
+        </div>
+
+        <div class="w-full flex items-center justify-between text-[11px] text-white/60 font-mono border-t border-white/10 pt-2">
+          <span>Action: Auto-Locked (Win32)</span>
+          <span id="sentry-intruder-time">Just now</span>
+        </div>
+
+        <div class="w-full flex flex-col gap-2 mt-2">
+          <button onclick="dismissSentryAlertAndUnlock()" class="w-full py-3.5 px-4 bg-red-600 hover:bg-red-500 text-white rounded-full font-label text-xs font-bold tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+            <span class="material-symbols-outlined text-[18px]">lock_open</span>
+            <span>Verify Fingerprint &amp; Unlock PC</span>
+          </button>
+          <button onclick="closeSentryAlertModal()" class="w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 text-white/80 rounded-full font-label text-xs font-semibold transition-all">
+            Dismiss Alert
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ====================================================== -->
     <!-- TAB 2: CONTROLS (HARDWARE & DESKTOP SNAPSHOT) -->
     <!-- ====================================================== -->
@@ -404,6 +472,39 @@
           <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20">
             <span class="font-label text-[11px] uppercase tracking-wider text-on-surface-variant font-medium">Session Cipher</span>
             <span class="font-label text-xs text-secondary font-mono">TLS-1.3 · chacha20-poly1305</span>
+          </div>
+        </div>
+
+        <!-- Sentry Guard & Stealth Cam Tile -->
+        <div class="bg-surface-container-low rounded-2xl p-5 shadow-sm flex flex-col gap-4 border border-outline-variant/30 relative overflow-hidden" id="sentry-card">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary" id="sentry-icon-box">
+                <span class="material-symbols-outlined text-[20px]">shield</span>
+              </div>
+              <div>
+                <h3 class="font-headline text-base font-semibold text-on-surface">Sentry Guard &amp; Stealth Cam</h3>
+                <p class="font-label text-[11px] text-secondary">Anti-Trespass Proximity Auto-Lock</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-semibold transition-colors" id="sentry-status-badge" style="background: rgba(120, 112, 106, 0.15); color: #78706a;">
+              <span class="w-1.5 h-1.5 rounded-full bg-secondary" id="sentry-dot"></span>
+              <span id="sentry-badge-text">DISARMED</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Arm / Disarm Sentry Mode -->
+            <button onclick="toggleSentryGuard()" class="py-3 px-3 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high text-xs font-semibold flex items-center justify-center gap-1.5 border border-outline-variant/30 active:scale-95 transition-all" id="btn-toggle-sentry" type="button">
+              <span class="material-symbols-outlined text-[16px] text-primary" id="sentry-action-icon">security</span>
+              <span id="sentry-btn-label">Arm Sentry</span>
+            </button>
+
+            <!-- Stealth Live Cam Peek -->
+            <button onclick="openStealthCamView()" class="py-3 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all" type="button">
+              <span class="material-symbols-outlined text-[16px]">visibility</span>
+              <span>Stealth Cam</span>
+            </button>
           </div>
         </div>
 
@@ -1653,6 +1754,153 @@
       }
     }
 
+    // ==========================================
+    // Sentry Guard & Stealth Cam Controller
+    // ==========================================
+    let isSentryArmed = false;
+    let camStreamInterval = null;
+    let isCamStreaming = false;
+
+    function toggleSentryGuard() {
+      if (isSentryArmed) {
+        if (window.Android && window.Android.stopSentry) {
+          window.Android.stopSentry();
+        }
+        updateSentryUI(false, 'Sentry Disarmed');
+      } else {
+        if (window.Android && window.Android.startSentry) {
+          window.Android.startSentry(100);
+        }
+        updateSentryUI(true, 'Sentry Armed & Monitoring');
+      }
+    }
+
+    function updateSentryUI(armed, msg) {
+      isSentryArmed = armed;
+      const badge = document.getElementById('sentry-status-badge');
+      const dot = document.getElementById('sentry-dot');
+      const badgeText = document.getElementById('sentry-badge-text');
+      const btnLabel = document.getElementById('sentry-btn-label');
+      const actionIcon = document.getElementById('sentry-action-icon');
+
+      if (armed) {
+        if (badge) {
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.color = '#10b981';
+        }
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+        if (badgeText) badgeText.textContent = 'ARMED • ACTIVE';
+        if (btnLabel) btnLabel.textContent = 'Disarm Sentry';
+        if (actionIcon) actionIcon.textContent = 'gpp_bad';
+        appendTerminal('> 🛡️ SENTRY GUARD ARMED: Anti-Trespass Proximity Detection active.');
+      } else {
+        if (badge) {
+          badge.style.background = 'rgba(120, 112, 106, 0.15)';
+          badge.style.color = '#78706a';
+        }
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-secondary';
+        if (badgeText) badgeText.textContent = 'DISARMED';
+        if (btnLabel) btnLabel.textContent = 'Arm Sentry';
+        if (actionIcon) actionIcon.textContent = 'security';
+        appendTerminal('> 🛡️ Sentry Guard disarmed.');
+      }
+    }
+
+    function openStealthCamView() {
+      const modal = document.getElementById('cam-peek-lightbox');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+      requestSingleCamFrame();
+    }
+
+    function closeStealthCamView() {
+      const modal = document.getElementById('cam-peek-lightbox');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      stopCamStream();
+    }
+
+    function requestSingleCamFrame() {
+      const spinner = document.getElementById('cam-spinner');
+      if (spinner) spinner.classList.remove('hidden');
+      if (window.Android && window.Android.requestCamPeek) {
+        window.Android.requestCamPeek();
+      }
+    }
+
+    function toggleCamLiveStream() {
+      if (isCamStreaming) {
+        stopCamStream();
+      } else {
+        isCamStreaming = true;
+        const btn = document.getElementById('cam-stream-btn');
+        const label = document.getElementById('cam-stream-label');
+        if (btn) btn.classList.replace('bg-white/15', 'bg-emerald-600');
+        if (label) label.textContent = 'Streaming Live (1.5s)';
+        requestSingleCamFrame();
+        camStreamInterval = setInterval(requestSingleCamFrame, 1500);
+      }
+    }
+
+    function stopCamStream() {
+      isCamStreaming = false;
+      if (camStreamInterval) clearInterval(camStreamInterval);
+      camStreamInterval = null;
+      const btn = document.getElementById('cam-stream-btn');
+      const label = document.getElementById('cam-stream-label');
+      if (btn) btn.classList.replace('bg-emerald-600', 'bg-white/15');
+      if (label) label.textContent = 'Auto-Refresh (1.5s)';
+    }
+
+    window.onCamPeek = function(dataUrl) {
+      const img = document.getElementById('cam-peek-img');
+      const spinner = document.getElementById('cam-spinner');
+      if (spinner) spinner.classList.add('hidden');
+      if (img) {
+        img.src = dataUrl;
+        img.classList.remove('hidden');
+      }
+    };
+
+    window.onSentryState = function(armed, msg) {
+      updateSentryUI(armed, msg);
+    };
+
+    window.onSentryAlert = function(alertData) {
+      const modal = document.getElementById('sentry-alert-modal');
+      const img = document.getElementById('sentry-intruder-img');
+      const timeSpan = document.getElementById('sentry-intruder-time');
+      
+      if (img && alertData.imageBase64) {
+        img.src = 'data:image/jpeg;base64,' + alertData.imageBase64;
+      }
+      if (timeSpan) {
+        timeSpan.textContent = new Date().toLocaleTimeString();
+      }
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+      appendTerminal(`> 🚨 SENTRY INTRUDER ALERT! Person detected within proximity. Laptop locked automatically.`);
+    };
+
+    function closeSentryAlertModal() {
+      const modal = document.getElementById('sentry-alert-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function dismissSentryAlertAndUnlock() {
+      closeSentryAlertModal();
+      openUnlockModal();
+    }
+
     function sendTextToPcClipboard() {
       const input = document.getElementById('clipboard-input');
       const text = (input ? input.value : '').trim();
@@ -1892,6 +2140,11 @@
       setTimeout(syncConnectionState, 300);
       setTimeout(syncConnectionState, 1200);
       setTimeout(syncConnectionState, 2500);
+      setTimeout(() => {
+        if (window.Android && window.Android.checkSentryStatus) {
+          window.Android.checkSentryStatus();
+        }
+      }, 1500);
     });
     setInterval(syncConnectionState, 4000);
   </script>

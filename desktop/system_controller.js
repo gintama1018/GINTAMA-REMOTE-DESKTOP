@@ -424,6 +424,80 @@ function getPcFile(name) {
   });
 }
 
+// 15. Sentry Guard & Stealth Cam Functions
+let sentryProcess = null;
+let sentryAlertCallback = null;
+
+function setSentryAlertCallback(cb) {
+  sentryAlertCallback = cb;
+}
+
+function getStealthCamPeek() {
+  return new Promise((resolve) => {
+    const pythonExe = 'C:\\Python313\\python.exe';
+    const scriptPath = path.join(__dirname, 'sentry_guard.py');
+    const cp = spawn(pythonExe, [scriptPath, 'peek'], { windowsHide: true });
+    let stdout = '';
+    cp.stdout.on('data', d => { stdout += d; });
+    cp.on('close', () => {
+      try {
+        const res = JSON.parse(stdout);
+        resolve(res);
+      } catch (err) {
+        resolve({ ok: false, error: 'Webcam capture failed' });
+      }
+    });
+    cp.on('error', err => resolve({ ok: false, error: err.message }));
+  });
+}
+
+function startSentryGuard(threshold = 100) {
+  if (sentryProcess) {
+    return { ok: true, armed: true, message: 'Sentry Guard already active' };
+  }
+  const pythonExe = 'C:\\Python313\\python.exe';
+  const scriptPath = path.join(__dirname, 'sentry_guard.py');
+  sentryProcess = spawn(pythonExe, [scriptPath, 'guard', String(threshold)], { windowsHide: true });
+  
+  let lineBuffer = '';
+  sentryProcess.stdout.on('data', chunk => {
+    lineBuffer += chunk.toString();
+    const lines = lineBuffer.split('\n');
+    lineBuffer = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const msg = JSON.parse(line.trim());
+        if (msg.event === 'trespassing_detected') {
+          console.log('[SentryGuard] 🚨 Trespassing detected! Auto-locking PC...');
+          lockScreen();
+          if (sentryAlertCallback) {
+            sentryAlertCallback(msg);
+          }
+        }
+      } catch {}
+    }
+  });
+
+  sentryProcess.on('close', () => {
+    sentryProcess = null;
+  });
+
+  return { ok: true, armed: true, message: 'Sentry Guard armed & monitoring' };
+}
+
+function stopSentryGuard() {
+  if (sentryProcess) {
+    try { sentryProcess.kill(); } catch {}
+    sentryProcess = null;
+  }
+  return { ok: true, armed: false, message: 'Sentry Guard disarmed' };
+}
+
+function isSentryArmed() {
+  return Boolean(sentryProcess);
+}
+
 module.exports = {
   lockScreen,
   listRunningApps,
@@ -441,7 +515,12 @@ module.exports = {
   unlockWorkstation,
   saveFile,
   listPcFiles,
-  getPcFile
+  getPcFile,
+  setSentryAlertCallback,
+  getStealthCamPeek,
+  startSentryGuard,
+  stopSentryGuard,
+  isSentryArmed
 };
 
 // Self-test when run directly
