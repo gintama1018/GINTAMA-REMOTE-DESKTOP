@@ -164,6 +164,13 @@ public class BridgeClient {
                     String clipText = body.getString("text");
                     mainHandler.post(() -> listener.onClipboardReceived(clipText));
                 }
+            } else if ("file.transfer".equals(type) || "file.receive".equals(type)) {
+                JSONObject body = payload.optJSONObject("body");
+                if (body != null && body.has("fileBase64")) {
+                    String name = body.optString("fileName", "pc_file");
+                    byte[] bytes = android.util.Base64.decode(body.getString("fileBase64"), android.util.Base64.DEFAULT);
+                    mainHandler.post(() -> listener.onFileDownloadedFromPc(name, bytes));
+                }
             } else if ("action.result".equals(type)) {
                 JSONObject body = payload.optJSONObject("body");
                 if (body != null) {

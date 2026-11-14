@@ -22,7 +22,13 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.List;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
+import android.provider.MediaStore;
 
 public class BridgeService extends Service implements BridgeClient.BridgeEventListener {
 
@@ -324,17 +330,59 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
 
     @Override
     public void onFileDownloadedFromPc(String filename, byte[] fileBytes) {
+        File savedFile = null;
         try {
-            File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File target = new File(downloadDir, filename);
-            FileOutputStream fos = new FileOutputStream(target);
-            fos.write(fileBytes);
-            fos.flush();
-            fos.close();
-            Toast.makeText(this, "📥 Saved " + filename + " to Downloads", Toast.LENGTH_LONG).show();
+            // 1. Try modern MediaStore on Android 10+ (Q+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentResolver resolver = getContentResolver();
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME, filename);
+                values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/BridgeRemote");
+                Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri != null) {
+                    try (OutputStream os = resolver.openOutputStream(uri)) {
+                        if (os != null) {
+                            os.write(fileBytes);
+                            os.flush();
+                        }
+                    }
+                }
+            }
         } catch (Exception e) {
-            Toast.makeText(this, "Failed to save file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "MediaStore save failed: " + e.getMessage());
         }
+
+        // 2. Also save to app storage or public downloads folder for direct File reference
+        try {
+            File downloadDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "BridgeRemote");
+            if (!downloadDir.exists()) downloadDir.mkdirs();
+            savedFile = new File(downloadDir, filename);
+            try (FileOutputStream fos = new FileOutputStream(savedFile)) {
+                fos.write(fileBytes);
+                fos.flush();
+            }
+        } catch (Exception e) {
+            try {
+                File extDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                savedFile = new File(extDir, filename);
+                try (FileOutputStream fos = new FileOutputStream(savedFile)) {
+                    fos.write(fileBytes);
+                    fos.flush();
+                }
+            } catch (Exception ex) {
+                Log.e(TAG, "Fallback save failed: " + ex.getMessage());
+            }
+        }
+
+        if (savedFile != null && savedFile.exists()) {
+            MediaScannerConnection.scanFile(this, new String[]{savedFile.getAbsolutePath()}, null, null);
+        }
+
+        // 3. Show Heads-Up Notification with Tap-to-Open action
+        NotificationHelper.showFileReceivedNotification(this, filename, savedFile, fileBytes.length);
+
+        Toast.makeText(this, "📥 Saved " + filename + " to Downloads", Toast.LENGTH_LONG).show();
+
         if (activityCallback != null) {
             activityCallback.onFileDownloadedFromPc(filename, fileBytes);
         }

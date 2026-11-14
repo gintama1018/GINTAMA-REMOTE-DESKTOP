@@ -98,5 +98,106 @@ public class NotificationHelper {
             manager.cancel(rid.hashCode());
         }
     }
+
+    public static final String FILES_CHANNEL_ID = "bridge_files_channel";
+    private static final String FILES_CHANNEL_NAME = "Bridge File Transfers";
+
+    public static void createFileNotificationChannel(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    FILES_CHANNEL_ID,
+                    FILES_CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Notifications for files transferred from PC");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 200, 100, 200});
+
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    public static void showFileReceivedNotification(Context context, String filename, java.io.File file, long sizeBytes) {
+        createFileNotificationChannel(context);
+
+        String mimeType = "*/*";
+        int idx = filename.lastIndexOf('.');
+        if (idx >= 0) {
+            String ext = filename.substring(idx + 1).toLowerCase();
+            String foundMime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+            if (foundMime != null) mimeType = foundMime;
+            if ("apk".equals(ext)) mimeType = "application/vnd.android.package-archive";
+        }
+
+        PendingIntent openPendingIntent = null;
+        PendingIntent sharePendingIntent = null;
+
+        if (file != null && file.exists()) {
+            try {
+                android.net.Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                        context,
+                        context.getPackageName() + ".fileprovider",
+                        file
+                );
+
+                Intent openIntent = new Intent(Intent.ACTION_VIEW);
+                openIntent.setDataAndType(contentUri, mimeType);
+                openIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                openPendingIntent = PendingIntent.getActivity(
+                        context,
+                        filename.hashCode(),
+                        openIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                );
+
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType(mimeType);
+                shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                Intent chooser = Intent.createChooser(shareIntent, "Share " + filename);
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                sharePendingIntent = PendingIntent.getActivity(
+                        context,
+                        (filename + "_share").hashCode(),
+                        chooser,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                );
+            } catch (Exception e) {
+                android.util.Log.e("NotificationHelper", "Error building file intents: " + e.getMessage());
+            }
+        }
+
+        String sizeText = sizeBytes > 1024 * 1024
+                ? String.format(java.util.Locale.US, "%.1f MB", sizeBytes / (1024.0 * 1024.0))
+                : (sizeBytes / 1024) + " KB";
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, FILES_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("📥 Received: " + filename)
+                .setContentText(sizeText + " • Tap to open")
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .setBigContentTitle("📥 File Received from PC")
+                        .bigText("File: " + filename + "\nSize: " + sizeText + "\nLocation: Downloads/BridgeRemote\n\nTap to open immediately."))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        if (openPendingIntent != null) {
+            builder.setContentIntent(openPendingIntent);
+            builder.addAction(android.R.drawable.ic_menu_view, "Open", openPendingIntent);
+        }
+        if (sharePendingIntent != null) {
+            builder.addAction(android.R.drawable.ic_menu_share, "Share", sharePendingIntent);
+        }
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(filename.hashCode(), builder.build());
+        }
+    }
 }
 
