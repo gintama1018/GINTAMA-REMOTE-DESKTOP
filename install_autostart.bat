@@ -8,3 +8,4 @@ echo [SUCCESS] Bridge Remote will now automatically start in the background when
 echo (No command prompt window will be shown).
 echo.
 pause
+

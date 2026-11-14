@@ -28,6 +28,9 @@ public class BridgeClient {
         void onSystemStatsData(JSONObject statsJson);
         void onScreenshotReceived(byte[] imageBytes);
         void onClipboardReceived(String text);
+        void onFileTransferComplete(String filename, boolean success, String message);
+        void onPcFilesListReceived(JSONArray files);
+        void onFileDownloadedFromPc(String filename, byte[] fileBytes);
         void onActionSuccess(String message);
     }
 
@@ -208,6 +211,17 @@ public class BridgeClient {
                         String b64 = body.getString("imageBase64");
                         byte[] imageBytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
                         mainHandler.post(() -> listener.onScreenshotReceived(imageBytes));
+                    } else if (body.has("files")) {
+                        JSONArray files = body.getJSONArray("files");
+                        mainHandler.post(() -> listener.onPcFilesListReceived(files));
+                    } else if (body.has("fileBase64")) {
+                        String name = body.optString("fileName", "pc_file");
+                        byte[] bytes = android.util.Base64.decode(body.getString("fileBase64"), android.util.Base64.DEFAULT);
+                        mainHandler.post(() -> listener.onFileDownloadedFromPc(name, bytes));
+                    } else if (body.has("fileSaved")) {
+                        String name = body.optString("fileName", "file");
+                        String msg = body.optString("message", "File saved on PC");
+                        mainHandler.post(() -> listener.onFileTransferComplete(name, true, msg));
                     } else if (body.has("message")) {
                         String msg = body.getString("message");
                         mainHandler.post(() -> listener.onActionSuccess(msg));
@@ -360,6 +374,27 @@ public class BridgeClient {
             JSONObject args = new JSONObject();
             args.put("pin", pin != null ? pin : "");
             requestAction("unlock", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void sendFileToLaptop(String filename, String base64Data) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("name", filename);
+            args.put("base64", base64Data);
+            requestAction("save_file", args);
+        } catch (Exception ignored) {}
+    }
+
+    public void fetchPcFiles() {
+        requestAction("list_pc_files", new JSONObject());
+    }
+
+    public void downloadPcFile(String filename) {
+        try {
+            JSONObject args = new JSONObject();
+            args.put("name", filename);
+            requestAction("get_pc_file", args);
         } catch (Exception ignored) {}
     }
 }

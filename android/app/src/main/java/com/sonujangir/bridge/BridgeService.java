@@ -10,16 +10,23 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
+import android.os.Environment;
 import android.os.IBinder;
+import android.util.Log;
 import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.List;
 
 public class BridgeService extends Service implements BridgeClient.BridgeEventListener {
 
+    private static final String TAG = "BridgeService";
     public static final String CHANNEL_SERVICE_ID = "bridge_foreground_service";
     public static final String CHANNEL_CLIPBOARD_ID = "bridge_clipboard_channel";
     public static final int SERVICE_NOTIFICATION_ID = 9001;
@@ -38,6 +45,9 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
         void onSystemStatsData(JSONObject statsJson);
         void onScreenshotReceived(byte[] imageBytes);
         void onClipboardReceived(String text);
+        void onFileTransferComplete(String filename, boolean success, String message);
+        void onPcFilesListReceived(JSONArray files);
+        void onFileDownloadedFromPc(String filename, byte[] fileBytes);
         void onActionSuccess(String message);
     }
 
@@ -71,16 +81,30 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
     public void onCreate() {
         super.onCreate();
         instance = this;
-        createChannels();
-        startForeground(SERVICE_NOTIFICATION_ID, buildForegroundNotification("Connecting to relay..."));
 
-        SharedPreferences prefs = getSharedPreferences("bridge_prefs", MODE_PRIVATE);
-        String currentHost = prefs.getString("relay_host", "gintama-remote-desktop.onrender.com");
+        try {
+            createChannels();
+            Notification notif = buildForegroundNotification("Connecting to relay...");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(SERVICE_NOTIFICATION_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(SERVICE_NOTIFICATION_ID, notif);
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "startForeground error: " + t.getMessage(), t);
+        }
 
-        bridgeClient = new BridgeClient(this);
-        bridgeClient.setRelayHost(currentHost);
-        ApprovalActionReceiver.bridgeClientInstance = bridgeClient;
-        bridgeClient.connect();
+        try {
+            SharedPreferences prefs = getSharedPreferences("bridge_prefs", MODE_PRIVATE);
+            String currentHost = prefs.getString("relay_host", "gintama-remote-desktop.onrender.com");
+
+            bridgeClient = new BridgeClient(this);
+            bridgeClient.setRelayHost(currentHost);
+            ApprovalActionReceiver.bridgeClientInstance = bridgeClient;
+            bridgeClient.connect();
+        } catch (Throwable t) {
+            Log.e(TAG, "BridgeClient init error: " + t.getMessage(), t);
+        }
     }
 
     @Override
@@ -150,7 +174,7 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
         );
 
         return new NotificationCompat.Builder(this, CHANNEL_SERVICE_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentTitle("Bridge Remote • 24/7 Background Sync")
                 .setContentText(status)
                 .setOngoing(true)
@@ -162,10 +186,12 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
     }
 
     private void updateServiceNotification(String status) {
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) {
-            nm.notify(SERVICE_NOTIFICATION_ID, buildForegroundNotification(status));
-        }
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(SERVICE_NOTIFICATION_ID, buildForegroundNotification(status));
+            }
+        } catch (Throwable ignored) {}
     }
 
     private void copyToSystemClipboard(String text) {
@@ -179,35 +205,37 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
     }
 
     private void showClipboardNotification(String text) {
-        Intent copyIntent = new Intent(this, BridgeService.class);
-        copyIntent.setAction("ACTION_COPY_CLIPBOARD");
-        copyIntent.putExtra("text", text);
-        PendingIntent copyPi = PendingIntent.getService(
-                this, (int) (System.currentTimeMillis() & 0xfffffff), copyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+        try {
+            Intent copyIntent = new Intent(this, BridgeService.class);
+            copyIntent.setAction("ACTION_COPY_CLIPBOARD");
+            copyIntent.putExtra("text", text);
+            PendingIntent copyPi = PendingIntent.getService(
+                    this, (int) (System.currentTimeMillis() & 0xfffffff), copyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
 
-        Intent openIntent = new Intent(this, MainActivity.class);
-        openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent openPi = PendingIntent.getActivity(
-                this, 0, openIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+            Intent openIntent = new Intent(this, MainActivity.class);
+            openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent openPi = PendingIntent.getActivity(
+                    this, 0, openIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
 
-        String preview = text.length() > 60 ? text.substring(0, 60) + "..." : text;
+            String preview = text.length() > 60 ? text.substring(0, 60) + "..." : text;
 
-        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_CLIPBOARD_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("📋 Copied from PC")
-                .setContentText(preview)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .setContentIntent(openPi)
-                .addAction(android.R.drawable.ic_menu_save, "Copy to Phone", copyPi);
+            NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_CLIPBOARD_ID)
+                    .setSmallIcon(android.R.drawable.stat_notify_sync)
+                    .setContentTitle("📋 Copied from PC")
+                    .setContentText(preview)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true)
+                    .setContentIntent(openPi)
+                    .addAction(android.R.drawable.ic_menu_save, "Copy to Phone", copyPi);
 
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) {
-            nm.notify(8888, b.build());
-        }
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(8888, b.build());
+            }
+        } catch (Throwable ignored) {}
     }
 
     // BridgeEventListener Callbacks
@@ -280,6 +308,39 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
     }
 
     @Override
+    public void onFileTransferComplete(String filename, boolean success, String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        if (activityCallback != null) {
+            activityCallback.onFileTransferComplete(filename, success, message);
+        }
+    }
+
+    @Override
+    public void onPcFilesListReceived(JSONArray files) {
+        if (activityCallback != null) {
+            activityCallback.onPcFilesListReceived(files);
+        }
+    }
+
+    @Override
+    public void onFileDownloadedFromPc(String filename, byte[] fileBytes) {
+        try {
+            File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File target = new File(downloadDir, filename);
+            FileOutputStream fos = new FileOutputStream(target);
+            fos.write(fileBytes);
+            fos.flush();
+            fos.close();
+            Toast.makeText(this, "📥 Saved " + filename + " to Downloads", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Failed to save file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+        if (activityCallback != null) {
+            activityCallback.onFileDownloadedFromPc(filename, fileBytes);
+        }
+    }
+
+    @Override
     public void onActionSuccess(String message) {
         if (activityCallback != null) {
             activityCallback.onActionSuccess(message);
@@ -300,4 +361,3 @@ public class BridgeService extends Service implements BridgeClient.BridgeEventLi
         super.onDestroy();
     }
 }
-

@@ -322,6 +322,108 @@ function unlockWorkstation(pin) {
   });
 }
 
+// 12. Save File from Phone (Direct to Downloads folder)
+function saveFile(name, base64Data) {
+  return new Promise((resolve, reject) => {
+    try {
+      const cleanName = path.basename(name || 'transferred_file_' + Date.now());
+      const downloadsDir = path.join(os.homedir(), 'Downloads');
+      if (!fs.existsSync(downloadsDir)) {
+        fs.mkdirSync(downloadsDir, { recursive: true });
+      }
+
+      let targetPath = path.join(downloadsDir, cleanName);
+      if (fs.existsSync(targetPath)) {
+        const ext = path.extname(cleanName);
+        const base = path.basename(cleanName, ext);
+        targetPath = path.join(downloadsDir, `${base}_${Date.now()}${ext}`);
+      }
+
+      const buffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(targetPath, buffer);
+
+      console.log(`[FileTransfer] 📥 Saved file: ${targetPath} (${(buffer.length / 1024).toFixed(1)} KB)`);
+
+      resolve({
+        ok: true,
+        fileSaved: true,
+        fileName: path.basename(targetPath),
+        path: targetPath,
+        size: buffer.length,
+        message: `Saved ${path.basename(targetPath)} to PC Downloads (${(buffer.length / 1024).toFixed(1)} KB)`
+      });
+    } catch (err) {
+      reject({ ok: false, error: err.message });
+    }
+  });
+}
+
+// 13. List Recent PC Files from Downloads
+function listPcFiles() {
+  return new Promise((resolve) => {
+    try {
+      const downloadsDir = path.join(os.homedir(), 'Downloads');
+      if (!fs.existsSync(downloadsDir)) {
+        return resolve({ ok: true, files: [] });
+      }
+
+      const entries = fs.readdirSync(downloadsDir, { withFileTypes: true });
+      const files = [];
+
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          try {
+            const fullPath = path.join(downloadsDir, entry.name);
+            const stat = fs.statSync(fullPath);
+            files.push({
+              name: entry.name,
+              sizeBytes: stat.size,
+              sizeMb: (stat.size / (1024 * 1024)).toFixed(2),
+              mtime: stat.mtimeMs,
+              ext: path.extname(entry.name).toLowerCase()
+            });
+          } catch {}
+        }
+      }
+
+      files.sort((a, b) => b.mtime - a.mtime);
+      resolve({ ok: true, files: files.slice(0, 20) });
+    } catch (err) {
+      resolve({ ok: false, files: [], error: err.message });
+    }
+  });
+}
+
+// 14. Get PC File (Download from PC to Phone)
+function getPcFile(name) {
+  return new Promise((resolve) => {
+    try {
+      const cleanName = path.basename(name);
+      const downloadsDir = path.join(os.homedir(), 'Downloads');
+      const targetPath = path.join(downloadsDir, cleanName);
+
+      if (!fs.existsSync(targetPath)) {
+        return resolve({ ok: false, error: 'File not found on PC' });
+      }
+
+      const stat = fs.statSync(targetPath);
+      if (stat.size > 30 * 1024 * 1024) {
+        return resolve({ ok: false, error: 'File too large (> 30MB) for direct transfer' });
+      }
+
+      const buffer = fs.readFileSync(targetPath);
+      resolve({
+        ok: true,
+        fileName: cleanName,
+        size: buffer.length,
+        fileBase64: buffer.toString('base64')
+      });
+    } catch (err) {
+      resolve({ ok: false, error: err.message });
+    }
+  });
+}
+
 module.exports = {
   lockScreen,
   listRunningApps,
@@ -336,7 +438,10 @@ module.exports = {
   toggleMute,
   adjustVolume,
   setVolume,
-  unlockWorkstation
+  unlockWorkstation,
+  saveFile,
+  listPcFiles,
+  getPcFile
 };
 
 // Self-test when run directly

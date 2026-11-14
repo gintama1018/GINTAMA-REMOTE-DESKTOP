@@ -349,6 +349,12 @@ async function handleIncomingEnvelope(envelope) {
         setTimeout(() => { isUpdatingClipboardFromPhone = false; }, 2500);
       } else if (action === 'unlock') {
         result = await systemController.unlockWorkstation(args.pin);
+      } else if (action === 'save_file') {
+        result = await systemController.saveFile(args.name, args.base64);
+      } else if (action === 'list_pc_files') {
+        result = await systemController.listPcFiles();
+      } else if (action === 'get_pc_file') {
+        result = await systemController.getPcFile(args.name);
       }
     } catch (err) {
       result = { ok: false, error: err.message || String(err) };

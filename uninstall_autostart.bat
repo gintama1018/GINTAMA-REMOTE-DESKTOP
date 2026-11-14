@@ -5,3 +5,4 @@ echo.
 echo [SUCCESS] Removed from Windows Startup!
 echo.
 pause
+

@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Base64;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -48,16 +49,34 @@ public class MainActivity extends AppCompatActivity
 
         requestNotificationPermission();
 
-        // Start 24/7 Persistent Background Service
-        Intent serviceIntent = new Intent(this, BridgeService.class);
-        ContextCompat.startForegroundService(this, serviceIntent);
+        SharedPreferences prefs = getSharedPreferences("bridge_prefs", MODE_PRIVATE);
+        currentHost = prefs.getString("relay_host", "gintama-remote-desktop.onrender.com");
+
+        // Initialize fallback BridgeClient immediately
+        bridgeClient = new BridgeClient(this);
+        bridgeClient.setRelayHost(currentHost);
+        ApprovalActionReceiver.bridgeClientInstance = bridgeClient;
 
         setupWebView();
+
+        // Start 24/7 Persistent Background Service safely
+        try {
+            Intent serviceIntent = new Intent(this, BridgeService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Throwable t) {
+            Log.e("MainActivity", "Service start error: " + t.getMessage());
+        }
 
         if (BridgeService.getInstance() != null) {
             BridgeService.getInstance().setActivityCallback(this);
             BridgeService.getInstance().setActivityVisible(true);
             this.bridgeClient = BridgeService.getInstance().getBridgeClient();
+        } else {
+            bridgeClient.connect();
         }
 
         handleNotificationIntent(getIntent());
@@ -244,6 +263,92 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onActionSuccess(String message) {
         runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_SHORT).show());
+    }
+
+    @Override
+    public void onFileTransferComplete(String filename, boolean success, String message) {
+        runOnUiThread(() -> {
+            Toast.makeText(this, "✅ " + message, Toast.LENGTH_SHORT).show();
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onFileTransferComplete) window.onFileTransferComplete('" + filename + "', true, " + JSONObject.quote(message) + ");", null);
+            }
+        });
+    }
+
+    @Override
+    public void onPcFilesListReceived(JSONArray files) {
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onPcFilesList) window.onPcFilesList(" + files.toString() + ");", null);
+            }
+        });
+    }
+
+    @Override
+    public void onFileDownloadedFromPc(String filename, byte[] fileBytes) {
+        runOnUiThread(() -> {
+            Toast.makeText(this, "📥 Downloaded " + filename + " to phone Downloads!", Toast.LENGTH_LONG).show();
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onFileDownloaded) window.onFileDownloaded('" + filename + "');", null);
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 2001 && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            sendFileUriToPc(data.getData());
+        }
+    }
+
+    private void sendFileUriToPc(android.net.Uri uri) {
+        new Thread(() -> {
+            try {
+                String filename = "file_" + System.currentTimeMillis();
+                android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+                if (cursor != null) {
+                    int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (nameIndex != -1 && cursor.moveToFirst()) {
+                        filename = cursor.getString(nameIndex);
+                    }
+                    cursor.close();
+                }
+
+                java.io.InputStream is = getContentResolver().openInputStream(uri);
+                if (is == null) return;
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int read;
+                while ((read = is.read(buf)) != -1) {
+                    baos.write(buf, 0, read);
+                }
+                is.close();
+
+                byte[] fileBytes = baos.toByteArray();
+                if (fileBytes.length > 30 * 1024 * 1024) {
+                    runOnUiThread(() -> Toast.makeText(this, "File too large (> 30MB). Please select smaller file.", Toast.LENGTH_LONG).show());
+                    return;
+                }
+
+                String b64 = Base64.encodeToString(fileBytes, Base64.NO_WRAP);
+                String finalName = filename;
+
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "🚀 Sending " + finalName + " (" + (fileBytes.length / 1024) + " KB) to PC...", Toast.LENGTH_SHORT).show();
+                    if (webView != null) {
+                        webView.evaluateJavascript("if(window.onFileTransferProgress) window.onFileTransferProgress('" + finalName + "', 50, 'Uploading to PC...');", null);
+                    }
+                });
+
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.sendFileToLaptop(finalName, b64);
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "Failed to send file: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
     }
 
     @Override
@@ -554,6 +659,41 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception ignored) {
             }
             return "";
+        }
+
+        @JavascriptInterface
+        public void pickAndSendFile() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.setType("*/*");
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    startActivityForResult(Intent.createChooser(intent, "Select File to Send to PC"), 2001);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Picker error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void requestPcFiles() {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.fetchPcFiles();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void downloadPcFile(String filename) {
+            runOnUiThread(() -> {
+                BridgeClient client = getActiveClient();
+                if (client != null) {
+                    client.downloadPcFile(filename);
+                }
+                Toast.makeText(MainActivity.this, "Downloading " + filename + " from PC...", Toast.LENGTH_SHORT).show();
+            });
         }
 
         @JavascriptInterface

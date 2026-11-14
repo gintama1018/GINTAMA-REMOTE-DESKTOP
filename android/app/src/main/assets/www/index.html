@@ -539,6 +539,61 @@
           </div>
         </div>
 
+        <!-- Lightning File Transfer Tile (AirDrop Style) -->
+        <div class="bg-surface-container-low rounded-2xl p-5 shadow-sm flex flex-col gap-4 border border-outline-variant/30">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary text-[18px]">folder_shared</span>
+              <h3 class="font-headline text-base font-semibold text-on-surface">Lightning File Transfer</h3>
+            </div>
+            <span class="font-label text-[10px] text-secondary bg-surface-container-high px-2.5 py-0.5 rounded-full font-mono">Direct · PC Downloads</span>
+          </div>
+
+          <!-- Drag & Drop Zone -->
+          <div onclick="triggerFilePicker()" class="border-2 border-dashed border-primary/40 hover:border-primary bg-surface-container-lowest/60 hover:bg-surface-container-lowest transition-all rounded-2xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer group shadow-sm active:scale-[0.99]">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+              <span class="material-symbols-outlined text-2xl">cloud_upload</span>
+            </div>
+            <span class="font-label text-xs font-semibold text-on-surface text-center">Tap to Select Any File &amp; Send to PC</span>
+            <span class="text-[10px] text-on-surface-variant text-center">Photos, Videos, PDFs, ZIPs, APKs &amp; Docs (Instant)</span>
+          </div>
+
+          <!-- Live Transfer Progress Indicator -->
+          <div id="transfer-progress-card" class="hidden bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/30 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-semibold text-on-surface truncate" id="transfer-filename">Uploading file...</span>
+              <span class="font-mono text-primary font-bold" id="transfer-percent">50%</span>
+            </div>
+            <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+              <div id="transfer-bar" class="bg-primary h-full transition-all duration-300" style="width: 50%;"></div>
+            </div>
+            <span class="text-[10px] text-secondary" id="transfer-status">Transferring directly to PC...</span>
+          </div>
+
+          <!-- Browse PC Downloads Button -->
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <button onclick="fetchPcRecentFiles()" class="flex-1 py-2.5 px-3 rounded-full bg-surface-container text-on-surface hover:bg-surface-container-high text-xs font-semibold flex items-center justify-center gap-1.5 border border-outline-variant/30 active:scale-95 transition-all" type="button">
+              <span class="material-symbols-outlined text-[15px] text-primary">download</span>
+              <span>Browse PC Files</span>
+            </button>
+            <button onclick="triggerFilePicker()" class="flex-1 py-2.5 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all" type="button">
+              <span class="material-symbols-outlined text-[15px]">add_circle</span>
+              <span>Send New File</span>
+            </button>
+          </div>
+
+          <!-- PC Files List Drawer / Container -->
+          <div id="pc-files-drawer" class="hidden flex flex-col gap-2 pt-2 border-t border-outline-variant/20">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-secondary uppercase tracking-wider">Recent PC Downloads</span>
+              <button onclick="document.getElementById('pc-files-drawer').classList.add('hidden')" class="text-[10px] text-primary hover:underline">Hide</button>
+            </div>
+            <div id="pc-files-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
         <!-- Live Desktop Snapshot Tile -->
         <div class="bg-surface-container-low rounded-2xl p-5 shadow-sm flex flex-col gap-4 border border-outline-variant/30">
           <div class="flex items-center justify-between">
@@ -1699,6 +1754,84 @@
       if (!isLivePeekActive) {
         appendTerminal('> Received new desktop snapshot frame (720p).');
       }
+    };
+
+    function triggerFilePicker() {
+      if (window.Android && window.Android.pickAndSendFile) {
+        window.Android.pickAndSendFile();
+      } else {
+        alert('File picker is supported when running inside Android app.');
+      }
+    }
+
+    function fetchPcRecentFiles() {
+      const drawer = document.getElementById('pc-files-drawer');
+      if (drawer) drawer.classList.remove('hidden');
+      if (window.Android && window.Android.requestPcFiles) {
+        window.Android.requestPcFiles();
+        appendTerminal('> Requesting recent files list from PC Downloads...');
+      }
+    }
+
+    function downloadPcFile(name) {
+      if (window.Android && window.Android.downloadPcFile) {
+        window.Android.downloadPcFile(name);
+        appendTerminal(`> Downloading ${name} from PC...`);
+      }
+    }
+
+    window.onFileTransferProgress = function(filename, percent, status) {
+      const card = document.getElementById('transfer-progress-card');
+      const fn = document.getElementById('transfer-filename');
+      const pct = document.getElementById('transfer-percent');
+      const bar = document.getElementById('transfer-bar');
+      const st = document.getElementById('transfer-status');
+
+      if (card) card.classList.remove('hidden');
+      if (fn) fn.textContent = filename;
+      if (pct) pct.textContent = `${percent}%`;
+      if (bar) bar.style.width = `${percent}%`;
+      if (st) st.textContent = status;
+    };
+
+    window.onFileTransferComplete = function(filename, success, message) {
+      window.onFileTransferProgress(filename, 100, message || 'File saved successfully');
+      setTimeout(() => {
+        const card = document.getElementById('transfer-progress-card');
+        if (card) card.classList.add('hidden');
+      }, 4000);
+      appendTerminal(`> ✅ Transfer complete: ${filename}`);
+    };
+
+    window.onPcFilesList = function(files) {
+      const list = document.getElementById('pc-files-list');
+      if (!list) return;
+      list.innerHTML = '';
+
+      if (!files || files.length === 0) {
+        list.innerHTML = '<span class="text-xs text-outline p-2">No recent files found in PC Downloads.</span>';
+        return;
+      }
+
+      files.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 bg-surface-container-lowest rounded-xl border border-outline-variant/30 text-xs';
+        row.innerHTML = `
+          <div class="flex items-center gap-2 truncate pr-2">
+            <span class="material-symbols-outlined text-primary text-[16px]">description</span>
+            <span class="truncate font-medium text-on-surface">${f.name}</span>
+            <span class="text-[10px] text-secondary font-mono">(${f.sizeMb} MB)</span>
+          </div>
+          <button onclick="downloadPcFile('${f.name}')" class="px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-on-primary text-[11px] font-semibold shrink-0 transition-colors" type="button">
+            Download
+          </button>
+        `;
+        list.appendChild(row);
+      });
+    };
+
+    window.onFileDownloaded = function(filename) {
+      appendTerminal(`> 📥 Downloaded ${filename} into Phone Downloads folder.`);
     };
 
     window.onSystemStats = function(stats) {
